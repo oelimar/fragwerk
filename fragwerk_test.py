@@ -11,7 +11,7 @@ st.set_page_config(
 
 #svg_path = r"C:\Users\DerSergeant\Desktop\fragwerk\fragwerk.png"
 
-st.image("https://github.com/oelimar/fragwerk/main/fragwerk.png")
+st.image("https://raw.githubusercontent.com/oelimar/fragwerk/main/fragwerk.png?token=GHSAT0AAAAAACL3AWBGUY3YGC6RJSBSS26EZMC22UQ")
 st.title("Fragwerk - Dein Fachwerkrechner")
 debug = st.toggle("Debug Mode")
 st.title("")
