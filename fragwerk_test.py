@@ -11,7 +11,7 @@ st.set_page_config(
 
 #svg_path = r"C:\Users\DerSergeant\Desktop\fragwerk\fragwerk.png"
 
-st.image("https://raw.githubusercontent.com/oelimar/images/main/fragwerk.png")
+st.image("https://raw.githubusercontent.com/oelimar/images/main/fragwerk.png", width=300)
 st.title("dein Fachwerkrechner")
 debug = st.toggle("Debug Mode")
 st.title("")
@@ -23,16 +23,130 @@ trussOptions = [
 ]
 
 roofOptions = {
-    "Schwer [1]": 1,
-    "Mittelschwer [0.5]": 0.5,
-    "Leicht [0.3]": 0.3
+    "Schwer [1]" : 1,
+    "Mittelschwer [0.5]" : 0.5,
+    "Leicht [0.3]" : 0.3
 }
 
 roofAdditives = {
-    "intensive Dachbegrünung": 12.8,
-    "extensive Dachbegrünung": 1.5,
-    "Photovoltaik": 0.15
+    "intensive Dachbegrünung" : 12.8,
+    "extensive Dachbegrünung" : 1.5,
+    "Photovoltaik" : 0.15
 }
+
+materialSelect = {
+    "Holz": {
+        "KVH Kantholz" : {
+            "10/10" : (100, 2.89),    # Querschnitt 10/10 : (Oberfläche A, min i)
+            "12/12" : (144, 3.46),
+            "14/14" : (196, 4.04),
+            "16/16" : (256, 4.62),
+            "18/18" : (324, 5.20),
+            "20/20" : (400, 5.77),
+            "22/22" : (484, 6.35),
+            "24/24" : (576, 6.93)
+        },
+        "KVH Rundholz" : {
+            "8" : (50.3, 2.00),
+            "9" : (63.6, 2.25),
+            "10" : (78.5, 2.50),
+            "11" : (95, 2.75),
+            "12" : (113, 3.00),
+            "13" : (133, 3.25),
+            "14" : (154, 3.50),
+            "15" : (177, 3.75),
+            "16" : (201, 4.00),
+            "17" : (227, 4.25),
+            "18" : (254, 4.50),
+            "19" : (284, 4.75),
+            "20" : (314, 5.00),
+            "21" : (346, 5.25),
+            "22" : (380, 5.50),
+            "23" : (415, 5.75),
+            "24" : (452, 6.00),
+            "25" : (491, 6.25),
+            "26" : (531, 6.50),
+            "28" : (616, 7.00),
+            "30" : (707, 7.50),
+            "32" : (804, 8.00),
+            "35" : (962, 8.75),
+            "38" : (1130, 9.50),
+            "40" : (1260, 10.00),
+            "50" : (1960, 12.50)
+        }
+    },
+    "Stahl" : {
+        "IPB" : {
+            "100" : (21.2, 2.51),
+            "120" : (25.3, 3.02),
+            "140" : (31.4, 3.52),
+            "160" : (38.8, 3.98),
+            "180" : (45.3, 4.52),
+            "200" : (54.8, 4.98)
+        }
+    }
+}
+
+lambda_values = {
+    "Holz":{
+        30 : 0.998,
+        35 : 0.972,
+        40 : 0.941,
+        45 : 0.900,
+        50 : 0.849,
+        55 : 0.785,
+        60 : 0.715,
+        65 : 0.644,
+        70 : 0.577,
+        75 : 0.516,
+        80 : 0.463,
+        85 : 0.417,
+        90 : 0.376,
+        95 : 0.341,
+        100 : 0.310,
+        105 : 0.283,
+        110 : 0.260,
+        115 : 0.239,
+        120 : 0.221,
+        125 : 0.204,
+        130 : 0.189,
+        135 : 0.176,
+        140 : 0.164,
+        145 : 0.154,
+        150 : 0.144
+
+    },
+    "Stahl":{
+        20 : 0.995,
+        25 : 0.975,
+        30 : 0.956,
+        35 : 0.935,
+        40 : 0.914,
+        45 : 0.891,
+        50 : 0.867,
+        55 : 0.841,
+        60 : 0.813,
+        65 : 0.784,
+        70 : 0.753,
+        75 : 0.720,
+        80 : 0.686,
+        85 : 0.652,
+        90 : 0.617,
+        95 : 0.583,
+        100 : 0.549,
+        105 : 0.517,
+        110 : 0.487,
+        115 : 0.458,
+        120 : 0.431,
+        125 : 0.406,
+        130 : 0.382,
+        135 : 0.360,
+        140 : 0.340,
+        145 : 0.321,
+        150 : 0.303
+    }
+}
+
 
 with st.container():
     st.subheader("Lasteinzugsfeld", divider="red")
@@ -61,13 +175,16 @@ with st.container():
 
         roofType = st.selectbox("Dachaufbau [kN/m²]", placeholder="Wähle einen Dachaufbau", index=1, options=roofOptions.keys(), help="Wähle einen voreingestellten Dachaufbau für eine Lastannahme.\nÜber 'zusätzliche Lasten' können voreingestellte Elemente ausgewählt,\noder durch drücken des roten Knopfes eigene hinzugefügt werden.")
         roofAdded = st.multiselect("Zusätzliche Dachlasten", st.session_state.roofAdditives.keys(), placeholder="Wähle hier zusätzliche Lasten", label_visibility="collapsed")
+        addVal = ""
+        valVal = ""
+
         col1_1, col1_2, col1_3 = st.columns([0.1, 0.45, 0.45], gap="small")
         with col1_1:
             addButton = st.button("", type="primary")
         with col1_2:
-            customAdditive = st.text_input("Bezeichnung", label_visibility="collapsed", placeholder="Bezeichnung")
+            customAdditive = st.text_input("Bezeichnung", label_visibility="collapsed", placeholder="Bezeichnung", value=addVal)
         with col1_3:
-            customValue = st.text_input("Last",  label_visibility="collapsed", placeholder="Last in kN/m²")
+            customValue = st.text_input("Last",  label_visibility="collapsed", placeholder="Last in kN/m²", value=valVal)
 
         if addButton:
             try:
@@ -75,8 +192,8 @@ with st.container():
                 #substring_to_remove
                 float_value = float(customValue)
                 st.session_state.roofAdditives[customAdditive] = float_value
-                customAdditive = ""
-                customValue = ""
+                addVal = ""
+                valVal = ""
                 st.experimental_rerun()
                     
             except ValueError:
@@ -94,7 +211,7 @@ with st.container():
                 snowZone = st.number_input("Schneelastzone", help="Wähle Anhand der Lage auf der Karte eine der 3 Schneelastzonen", step=1, value=3, min_value=1, max_value=3)
                 st.image("https://encrypted-tbn0.gstatic.com/images?q=tbn:ANd9GcQ4A-8ZgmAVEg-fwtBN1ndVuCaCfbG3p5VOpwya0ZXY7NljUrRNvYoH4Hng9DVW0TriyDM&usqp=CAU", caption="Schneelastzonen in DE")
 
-        snowForce = snow_mapping[snowZone] * 0.8
+        snowForce = snow_mapping[snowZone] * 0.8 # berechnung wie in Tabellenbuch
         windForce = wind_mapping[windZone] * 0.2
         roofForce = roofOptions[roofType]
 
@@ -112,8 +229,8 @@ with st.container():
     
     with col3:
         trussType = st.selectbox("Fachwerkart", placeholder="Wähle ein Fachwerk", options=trussOptions)
-        trussHeight = float(st.text_input("Statische Höhe [m]", value="1.2"))
         trussWidth = float(st.text_input("Spannweite [m]", value="15"))
+        trussHeight = float(st.text_input("Statische Höhe [m]", value=trussWidth/10))
         fieldNumber = int(st.number_input("Anzahl an Fächern", step=1, value=5, min_value=2, max_value=20))
         distanceNode = round(trussWidth / fieldNumber, 2)
 
@@ -122,7 +239,23 @@ with st.container():
     col5, col6 = st.columns([0.4, 0.6], gap="large")
 
     with col5:
-        st.text("Eingabe Querschnitt")
+        col5_1, col5_2 = st.columns([0.5, 0.5], gap="small")
+        #st.text("Eingabe Querschnitt")
+
+        # st.text(materialSelect.keys())
+        with col5_1:
+            material = st.selectbox("Material", placeholder="Wähle ein Material", options=materialSelect.keys())
+            # st.text(material)
+        with col5_2:
+            profile = st.selectbox("Profil", placeholder="Wähle ein Profil", options=materialSelect[material].keys())
+
+        if material == "Holz":
+            sigma_rd = 1.3
+        elif material == "Stahl":
+            sigma_rd = 21.8
+        else:
+            st.markdown(":red[Zu dem Material ist keine Randspannung angegeben.]")
+
     with col6:
         st.text("GRAPH QUERSCHNITT")
 
@@ -433,6 +566,9 @@ def calc_strebewerk():
     ForceDmiddle = (((qTotal*trussDistance*trussWidth)/(2*fieldNumber) + qSum - ((qTotal*trussDistance*trussWidth)/2)) / math.sin(diagonalAlpha))
     maxForceO = (-maxForceU - (math.cos(diagonalAlpha)*ForceDmiddle))
 
+    global maxForce
+    maxForce = maxForceO
+
     st.text(f"Maximale Zugkraft im Untergurt: {abs(maxForceU):.2f} kN")
     st.text(f"Kraft im mittleren Diagonalstab: {abs(ForceDmiddle):.2f} kN")
     st.text(f"Maximale Druckkraft im Obergurt: {abs(maxForceO):.2f} kN")
@@ -442,9 +578,108 @@ def calc_strebewerk():
             st.text(f"Kraft im mittleren Diagonalstab: {abs(ForceDmiddle):.2f} kN")
             st.text(f"generiert bis Fach: {math.ceil(fieldNumber/2)}")
             st.text(f"Qs generiert: {len(qNum)}\nmit Werten: {qNum}\ninsgesamt Momente: {float(qProd):.2f}")
+            # Mathematical expression in LaTeX format
+            math_expression = r"\frac{5}{4} + \frac{\sqrt{a^2 + b^2}}{c}"
+
+            # Display the mathematical expression using st.latex
+            st.latex(math_expression)
+
+    return maxForce
+
+def extract_numerical_part(key):
+    # This function extracts the numerical part from a string key
+    # Example: "8" -> 8, "12/12" -> 12
+    return int(key.split('/')[0]) if '/' in key else int(key)
 
 
+def stress_verification(): # Spannungsnachweis zur Wahl des ersten Querschnitts
     
+    global maxForce
+    
+    maxForce_d = -maxForce * 1.4
+    
+    areaCalc = maxForce_d/sigma_rd
+
+    global chosenProfile
+
+    if debug == True:
+        with col5:
+            st.text(f"benötigte Oberfläche: {areaCalc:.2f}cm²")
+    
+    for profil, values in materialSelect[material][profile].items():
+        area = values[0]
+        if area > areaCalc:
+            chosenProfile = profil
+            if debug == True:
+                with col5:
+                    st.text(f"Profil: {chosenProfile}")
+                    st.text(f"Profil Oberfläche: {materialSelect[material][profile][chosenProfile][0]}cm²")
+            return chosenProfile
+    else:
+        st.markdown(f'<font color="red">Es gibt keinen passenden {profile} Querschnitt, der den Spannungstest besteht.</font>', unsafe_allow_html=True)
+        return False
+    
+    
+    
+    
+    
+
+def check_bend(min_i):
+
+    global maxForce
+    global chosenProfile
+
+    lambdaCalc = (trussWidth/fieldNumber)*100/min_i
+
+    for lmbda, k in lambda_values[material].items():
+        if lmbda > lambdaCalc:
+
+            check = sigma_rd * k
+        
+            if check > (-maxForce*1.4)/materialSelect[material][profile][chosenProfile][0]:  # sigma*k > Nd/A
+        
+                if debug == True:
+                    st.text(f"Lambda: {lambdaCalc}")
+                    st.text(f"k = {k}")
+                    math_expression = f"sigma_r \\cdot k > \\frac{{Nd}}{{A}}"
+                    math_expression2 = f"{check:.2f} > {(-maxForce*1.4)/materialSelect[material][profile][chosenProfile][0]:.2f}"
+
+                    # Display the mathematical expression using st.latex
+                    st.latex(math_expression)
+                    st.latex(math_expression2)
+                
+                return True
+
+            else:
+                return False
+
+
+
+def bend_verification():
+    # iterativer Knicknachweis
+    global chosenProfile
+
+    for profil, values in materialSelect[material][profile].items():
+        if extract_numerical_part(profil) >= extract_numerical_part(chosenProfile):
+            if debug == True:
+                st.text(f"{profil} ist größer als {chosenProfile}")
+            min_i = values[1]
+            if check_bend(min_i) == True:
+                chosenProfile = profil
+                st.title(f"{chosenProfile} {profile}")
+                st.markdown(f'<font color="green">Der Querschnitt {chosenProfile} in {material} {profile} besteht den Knicktest!</font>', unsafe_allow_html=True)
+                
+                return chosenProfile
+        #else:
+            #st.text(f"{profil} ist nicht größer als {chosenProfile}")
+    else:
+        st.markdown(f'<font color="red">Es gibt keinen passenden {profile} Querschnitt, der den Knicktest besteht.</font>', unsafe_allow_html=True)
+        #st.markdown(":red[Es gibt keinen passenden Querschnitt für]")
+
+
+
+
+
 
 def main():
 
@@ -454,7 +689,11 @@ def main():
     with col4:
         draw_truss()
     with col6:
-        calc_strebewerk()    
+        calc_strebewerk()
+    with col5:
+        if stress_verification() != False:
+            bend_verification()
+
 
 if __name__ == "__main__":
     main()
