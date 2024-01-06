@@ -53,18 +53,19 @@ roofAdditives = {
 }
 
 defaultPathLocal = r"C:\Users\DerSergeant\Desktop\fragwerk\materials.json"
-defaultPathGithub = "https://raw.githubusercontent.com/oelimar/images/main/path/to/materials.json"
+defaultPathGithub = "https://raw.githubusercontent.com/oelimar/images/main/materials.json"
 
 def load_json_file(file_url, file_path):
     try:
         response = requests.get(file_url)
-        response.raise_for_stats()
+        response.raise_for_status()
         materialSelect = json.loads(response.text)
         return materialSelect
 
     except Exception as e:
         with open(file_path, "r") as json_file:
             materialSelect = json.load(json_file)
+            st.text(f"local File had to be used. Error: {e}")
         return materialSelect
 
 materialSelect = load_json_file(defaultPathGithub, defaultPathLocal)
