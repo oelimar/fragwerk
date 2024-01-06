@@ -3,6 +3,14 @@ import matplotlib.pyplot as plt
 import numpy as np
 from itertools import zip_longest
 import math
+import json # für material import
+from matplotlib.collections import LineCollection
+from matplotlib.colors import Normalize # normalizing für die colormaps
+from matplotlib.cm import ScalarMappable # color maps
+import random # für random Nummer
+import secrets # für random Hex Farbe
+import copy # um st.session_state werte zu kopieren ohne diese weiter zu referenzieren
+import requests # um material.json auf github abzufragen
 
 st.set_page_config(
     page_title="Fachwerkrechner",
@@ -11,6 +19,7 @@ st.set_page_config(
 
 #svg_path = r"C:\Users\DerSergeant\Desktop\fragwerk\fragwerk.png"
 
+st.title("")
 st.image("https://raw.githubusercontent.com/oelimar/images/main/fragwerk.png", width=300)
 st.title("dein Fachwerkrechner")
 debug = st.toggle("Debug Mode")
@@ -28,64 +37,42 @@ roofOptions = {
     "Leicht [0.3]" : 0.3
 }
 
+roofColors = {
+    "Intensive Dachbegrünung" : "#60b9cb",
+    "Extensive Dachbegrünung" : "#6082cb",
+    "Photovoltaik" : "#a060cb",
+    "Dachlast" : "#CB6062",
+    "Windlast" : "#60C5CB",
+    "Schneelast" : "#5F6969"
+}
+
 roofAdditives = {
-    "intensive Dachbegrünung" : 12.8,
-    "extensive Dachbegrünung" : 1.5,
+    "Intensive Dachbegrünung" : 12.8,
+    "Extensive Dachbegrünung" : 1.5,
     "Photovoltaik" : 0.15
 }
 
-materialSelect = {
-    "Holz": {
-        "KVH Kantholz" : {
-            "10/10" : (100, 2.89),    # Querschnitt 10/10 : (Oberfläche A, min i)
-            "12/12" : (144, 3.46),
-            "14/14" : (196, 4.04),
-            "16/16" : (256, 4.62),
-            "18/18" : (324, 5.20),
-            "20/20" : (400, 5.77),
-            "22/22" : (484, 6.35),
-            "24/24" : (576, 6.93)
-        },
-        "KVH Rundholz" : {
-            "8" : (50.3, 2.00),
-            "9" : (63.6, 2.25),
-            "10" : (78.5, 2.50),
-            "11" : (95, 2.75),
-            "12" : (113, 3.00),
-            "13" : (133, 3.25),
-            "14" : (154, 3.50),
-            "15" : (177, 3.75),
-            "16" : (201, 4.00),
-            "17" : (227, 4.25),
-            "18" : (254, 4.50),
-            "19" : (284, 4.75),
-            "20" : (314, 5.00),
-            "21" : (346, 5.25),
-            "22" : (380, 5.50),
-            "23" : (415, 5.75),
-            "24" : (452, 6.00),
-            "25" : (491, 6.25),
-            "26" : (531, 6.50),
-            "28" : (616, 7.00),
-            "30" : (707, 7.50),
-            "32" : (804, 8.00),
-            "35" : (962, 8.75),
-            "38" : (1130, 9.50),
-            "40" : (1260, 10.00),
-            "50" : (1960, 12.50)
-        }
-    },
-    "Stahl" : {
-        "IPB" : {
-            "100" : (21.2, 2.51),
-            "120" : (25.3, 3.02),
-            "140" : (31.4, 3.52),
-            "160" : (38.8, 3.98),
-            "180" : (45.3, 4.52),
-            "200" : (54.8, 4.98)
-        }
-    }
-}
+defaultPathLocal = r"C:\Users\DerSergeant\Desktop\fragwerk\materials.json"
+defaultPathGithub = "https://raw.githubusercontent.com/oelimar/images/main/path/to/materials.json"
+
+def load_json_file(file_url, file_path):
+    try:
+        response = requests.get(file_url)
+        response.raise_for_stats()
+        materialSelect = json.loads(response.text)
+        return materialSelect
+
+    except Exception as e:
+        with open(file_path, "r") as json_file:
+            materialSelect = json.load(json_file)
+        return materialSelect
+
+materialSelect = load_json_file(defaultPathGithub, defaultPathLocal)
+
+#with open(r"C:\Users\DerSergeant\Desktop\fragwerk\materials.json", "r") as json_file:
+    #materialSelect = json.load(json_file)
+
+
 
 lambda_values = {
     "Holz":{
@@ -147,10 +134,15 @@ lambda_values = {
     }
 }
 
+sigmas = {
+    "Holz" : 1.3,
+    "Stahl" : 21.8
+}
 
 with st.container():
     st.subheader("Lasteinzugsfeld", divider="red")
     col1, col2 = st.columns([0.4, 0.6], gap="large")
+
 
     with col1:
         #st.text("Eingabe LEF")
@@ -171,36 +163,100 @@ with st.container():
         #with st.expander("Dachaufbau"):
         if 'roofAdditives' not in st.session_state:
             st.session_state.roofAdditives = roofAdditives
+        if "roofColors" not in st.session_state:
+            st.session_state.roofColors = roofColors
+
+        if "currentSelection" not in st.session_state:
+            st.session_state.currentSelection = None
+
+        #st.text(st.session_state.currentSelection.keys())
+        #st.text(st.session_state.roofAdditives.keys())
+
+        if st.session_state.currentSelection == None:
+            roofAdded_default = []
+        else:
+            roofAdded_default = st.session_state.currentSelection.keys()
+        #st.text(roofAdded_default)
+
+        #st.markdown("<div style='font-size: 13px; font-weight: 100;'>Anzeige Lasten</div>", unsafe_allow_html=True)
+        #col0_1, col0_2 = st.columns([0.5, 0.5], gap="small")
+        #with col0_1:
+            #lastAnzeige_einfach = st.button("Einfach", use_container_width=True)
+
+        #with col0_2:
+            #lastAnzeige_einfach = st.button("Erweitert", use_container_width=True)
         
+        # Custom CSS style for the radio buttons
+        custom_css = """
+                <style>
+                /* Container */
+                [role="radiogroup"] {
+                    display: flex;           /* Use flexbox for layout */
+                    justify-content: space-between; /* Distribute items evenly across the container */
+                    width: 100%;             /* Take up the full width of the parent */
+                    flex-wrap: wrap;         /* Allow items to wrap to the next line if they don't fit */
+                    gap: 10px;               /* Gap between items */
+                }
+                </style>
+                """
+
+
+        # Apply custom CSS
+        st.markdown(custom_css, unsafe_allow_html=True)
+
+        lastAnzeige = st.radio("Anzeige Lasten", ["Einfach", "Erweitert"], 0, horizontal=True)
+
+
 
         roofType = st.selectbox("Dachaufbau [kN/m²]", placeholder="Wähle einen Dachaufbau", index=1, options=roofOptions.keys(), help="Wähle einen voreingestellten Dachaufbau für eine Lastannahme.\nÜber 'zusätzliche Lasten' können voreingestellte Elemente ausgewählt,\noder durch drücken des roten Knopfes eigene hinzugefügt werden.")
-        roofAdded = st.multiselect("Zusätzliche Dachlasten", st.session_state.roofAdditives.keys(), placeholder="Wähle hier zusätzliche Lasten", label_visibility="collapsed")
+        roofAdded = st.multiselect("Zusätzliche Dachlasten", st.session_state.roofAdditives.keys(), default=roofAdded_default, placeholder="Wähle hier zusätzliche Lasten", label_visibility="collapsed")
+
+        if roofAdded != []:
+            st.session_state.currentSelection = {}
+            for name in roofAdded:
+                st.session_state.currentSelection[name] = copy.deepcopy(st.session_state.roofAdditives[name])
+
+
         addVal = ""
         valVal = ""
 
-        col1_1, col1_2, col1_3 = st.columns([0.1, 0.45, 0.45], gap="small")
+        addButton = st.button("Eigene Last hinzufügen", type="primary", use_container_width=True, disabled=False)
+
+        col1_1, col1_2, col1_3 = st.columns([0.5, 0.3, 0.1], gap="small")
         with col1_1:
-            addButton = st.button("", type="primary")
-        with col1_2:
             customAdditive = st.text_input("Bezeichnung", label_visibility="collapsed", placeholder="Bezeichnung", value=addVal)
-        with col1_3:
+        with col1_2:
             customValue = st.text_input("Last",  label_visibility="collapsed", placeholder="Last in kN/m²", value=valVal)
+        with col1_3:
+            customColor = st.color_picker("Farbe", label_visibility="collapsed", value="#FFFFFF")
+
+        if "additiveCounter" not in st.session_state:
+            st.session_state.additiveCounter = 1
 
         if addButton:
             try:
+                if customAdditive == "":
+                    customAdditive = "Eigene Last " + str(st.session_state.additiveCounter) # Falls keine Bezeichnung eingetragen wird, wird automatisch immer ein neuer Name generiert.
+                    st.session_state.additiveCounter += 1
                 original_string = customValue
                 #substring_to_remove
                 float_value = float(customValue)
                 st.session_state.roofAdditives[customAdditive] = float_value
+                if customColor == "#FFFFFF":
+                    customColor = "#" + secrets.token_hex(3) # generiere random HEX Farbcode "#123456"
+                st.session_state.roofColors[customAdditive] = customColor
                 addVal = ""
                 valVal = ""
+                if st.session_state.currentSelection == None:
+                    st.session_state.currentSelection = {}
+                st.session_state.currentSelection[customAdditive] = float_value
                 st.experimental_rerun()
                     
             except ValueError:
-                st.markdown(":red[Last unzulässig. Bitte nur Wert in [kN/m²] eingeben]")
+                st.markdown(":red[Last unzulässig. Bitte Wert in [kN/m²] angeben.]")
             #return roofAdditives
 
-        with st.expander("bewegliche Lasten"):
+        with st.expander("veränderliche Lasten"):
 
             col1_4, col1_5 = st.columns([0.5, 0.5], gap="small")
             with col1_4:
@@ -219,6 +275,7 @@ with st.container():
             roofForce += st.session_state.roofAdditives[force]
 
         qTotal = snowForce + windForce + roofForce
+        qTotalField = qTotal * trussDistance
 
     #with col2:
         #st.text("GRAPH LEF")
@@ -229,7 +286,7 @@ with st.container():
     
     with col3:
         trussType = st.selectbox("Fachwerkart", placeholder="Wähle ein Fachwerk", options=trussOptions)
-        trussWidth = float(st.text_input("Spannweite [m]", value="15"))
+        trussWidth = float(st.text_input("Spannweite [m]", value="12"))
         trussHeight = float(st.text_input("Statische Höhe [m]", value=trussWidth/10))
         fieldNumber = int(st.number_input("Anzahl an Fächern", step=1, value=5, min_value=2, max_value=20))
         distanceNode = round(trussWidth / fieldNumber, 2)
@@ -249,16 +306,29 @@ with st.container():
         with col5_2:
             profile = st.selectbox("Profil", placeholder="Wähle ein Profil", options=materialSelect[material].keys())
 
-        if material == "Holz":
-            sigma_rd = 1.3
-        elif material == "Stahl":
-            sigma_rd = 21.8
+        if material in sigmas:
+            sigma_rd = sigmas[material]
         else:
-            st.markdown(":red[Zu dem Material ist keine Randspannung angegeben.]")
+            st.markdown(":red[Zu dem Material ist keine Randspannung vorhanden.]")
+            sigmaInput = st.text_input("", placeholder="Randspannung in kN/cm²")
+            if sigmaInput:
+                sigma_rd = sigmaInput
 
-    with col6:
-        st.text("GRAPH QUERSCHNITT")
+        stress_expander = st.expander("Spannungsnachweis")
 
+
+def draw_q_over_truss(minNodeX, minNodeY, ax):
+    qNodes = [
+        [minNodeX, minNodeY + trussHeight * 4/3],
+        [minNodeX, minNodeY + 0.5 + trussHeight * 4/3],
+        [minNodeX + trussWidth, minNodeY + 0.5 + trussHeight * 4/3],
+        [minNodeX + trussWidth, minNodeY + trussHeight * 4/3]
+    ]
+
+    ax.fill([point[0] for point in qNodes], [point[1] for point in qNodes], color="white", facecolor="lightblue", hatch="|", alpha=0.7)
+    ax.annotate(f"q = {float(qTotalField):.2f} kN/m", (minNodeX + trussWidth / 2, minNodeY + 0.5 + trussHeight * 4.5/3), xytext=(0, 0), textcoords='offset points', ha='center', va='center', fontsize=8, annotation_clip=False)
+
+    
 
 def draw_truss():
     # Define truss nodes
@@ -267,8 +337,6 @@ def draw_truss():
     maxNode = minNodeY + trussHeight
     nrNodeLower = int(fieldNumber) 
     nrNodeUpper = int(fieldNumber) + 1
-
-    qTotalField = qTotal * trussDistance
 
     nodeArray = []
 
@@ -401,16 +469,7 @@ def draw_truss():
     ax.annotate(f"{float(trussHeight):.2f}m", (minNodeX / 3, minNodeY + trussHeight / 2), xytext=(0, 0), textcoords='offset points', ha='center', va='center', fontsize=8, rotation=90, annotation_clip=False)
 
     # Draw LEF Force above Truss
-
-    qNodes = [
-        [minNodeX, minNodeY + trussHeight * 4/3],
-        [minNodeX, minNodeY + 0.5 + trussHeight * 4/3],
-        [minNodeX + trussWidth, minNodeY + 0.5 + trussHeight * 4/3],
-        [minNodeX + trussWidth, minNodeY + trussHeight * 4/3]
-    ]
-
-    ax.fill([point[0] for point in qNodes], [point[1] for point in qNodes], color="white", facecolor="lightblue", hatch="|", alpha=0.7)
-    ax.annotate(f"q = {float(qTotalField):.2f} kN/m", (minNodeX + trussWidth / 2, minNodeY + 0.5 + trussHeight * 4.5/3), xytext=(0, 0), textcoords='offset points', ha='center', va='center', fontsize=8, annotation_clip=False)
+    draw_q_over_truss(minNodeX, minNodeY, ax)
 
     # Set plot limits
     ax.set_xlim([0, trussWidth + 2 * minNodeX])
@@ -435,10 +494,57 @@ def draw_truss():
         st.text(f"Corner Nodes: {nodeCorner}")
         st.text(f"Combined Nodes: {nodeArray}")
 
+#def draw_stack():
+
+
+def lasten_stack(nodes, last, debugOutput=False):
+
+    global start_height_stack
+    start_height_stack = 0.5
+
+    if "stackStartHeight" not in st.session_state:
+        st.session_state.stackStartHeight = start_height_stack
+
+    if trussDistance <= 5:
+        totalHeight = trussDistance * 0.6
+    if trussDistance > 5:
+        totalHeight = trussDistance * 0.6
+    lastHeight = (last / qTotal) * totalHeight
+
+    nodesStack = [
+        [nodes[0][0], nodes[0][1] + st.session_state.stackStartHeight],
+        [nodes[1][0], nodes[1][1] + st.session_state.stackStartHeight],
+        [nodes[1][0], nodes[1][1] + st.session_state.stackStartHeight + lastHeight],
+        [nodes[0][0], nodes[0][1] + st.session_state.stackStartHeight + lastHeight]
+    ]
+
+    if debugOutput == True:
+        if debug == True:
+            st.text(f"fängt an bei: {st.session_state.stackStartHeight:.2f}, mit Höhe {lastHeight:.2f} weiter")
+            st.text(qTotal)
+            #st.text(f"{roofAdded}")
+            #for last in roofAdded:
+                #st.text(f"{st.session_state.roofAdditives[last]} kN")
+
+    st.session_state.stackStartHeight += lastHeight
+
+    return nodesStack
+
+
+
+
+
+
+    
+
+
+
+
 def draw_LEF():
 
     minNodeLEF = trussDistance / 5
     minNodeLEFy = 2
+    global start_height_stack
 
     edgesLEF = [
         (0, 1),
@@ -448,9 +554,9 @@ def draw_LEF():
 
     nodesLEF = [
         [minNodeLEF, minNodeLEFy + 2.2],
-        [minNodeLEF, minNodeLEFy + 5],
+        [minNodeLEF, minNodeLEFy + 4.5],
         [minNodeLEF + 3, minNodeLEFy + 3],
-        [minNodeLEF + 3, minNodeLEFy]
+        [minNodeLEF + 3, minNodeLEFy + 0.3]
     ]
 
     nodesForce = [
@@ -475,8 +581,10 @@ def draw_LEF():
     ]
     
     LEF_graph0 = plt.Polygon(nodesForce[0], closed = True, edgecolor=None, facecolor="lightblue", alpha=0.3)
-    LEF_graph1 = plt.Polygon(nodesForce[1], closed = True, edgecolor=None, facecolor="lightblue", alpha=0.7)
+    LEF_graph1 = plt.Polygon(nodesForce[1], closed = True, edgecolor="lightblue", facecolor="lightblue", alpha=0.5)
     LEF_graph2 = plt.Polygon(nodesForce[2], closed = True, edgecolor=None, facecolor="lightblue", alpha=0.3)
+
+
 
     #st.write(LEF_graph)
     #st.write(nodesForce[0])
@@ -484,6 +592,9 @@ def draw_LEF():
 
         # Create a figure
     fig, ax = plt.subplots()
+
+    #with col1:
+        #lasten_stack(nodesForce[1], 1, "test", ax)
 
     truss = 0
     while truss < 3:
@@ -498,6 +609,74 @@ def draw_LEF():
             ax.plot(node[0] + truss * trussDistance, node[1], 'ko', markersize=5)
         truss += 1
 
+
+    colorTurn = 0
+
+
+    if "completeRoofAdditives" not in st.session_state:
+        st.session_state.completeRoofAdditives = {}
+
+    st.session_state.completeRoofAdditives = copy.deepcopy(st.session_state.roofAdditives) # initialisiere completeRoofAdditives mit roodAdditive werten, ohne selben Memory platz zu teilen
+
+    completeRoofStack = roofAdded
+    
+    st.session_state.completeRoofAdditives["Dachlast"] = roofOptions[roofType]
+    st.session_state.completeRoofAdditives["Windlast"] = round(windForce, 2)
+    st.session_state.completeRoofAdditives["Schneelast"] = round(snowForce, 2)
+
+    completeRoofStack.extend(["Schneelast", "Windlast"])
+    completeRoofStack.insert(0, "Dachlast")
+
+    if debug == True:
+        st.text(f"roofAdded {roofAdded}")
+        st.text(f"completeRoofStack {completeRoofStack}")
+        st.text(f"st.session_state.completeRoofAdditives {st.session_state.completeRoofAdditives}")
+        st.text(f"st.session_state.roofAdditives {st.session_state.roofAdditives}")
+        st.text(completeRoofStack)
+
+    #stackPatches = []
+        
+    if lastAnzeige == "Erweitert":
+
+        for name in completeRoofStack:
+            if debug == True:
+                st.text(name)
+
+            turn = 0
+            annotateNodes = []
+
+            for nodes in lasten_stack(nodesForce[1], st.session_state.completeRoofAdditives[name], debugOutput=True):
+                #if debug == True:
+                    #st.text(name)
+                    #st.text(f"{nodes[0]} und {nodes[1]}")
+                #ax.plot(*nodes, "ko", markersize=2)
+                #if 2 <= turn < 4:
+                annotateNodes.append(nodes)
+                turn += 1
+
+            #nodesStack = lasten_stack(nodesForce[1], st.session_state.roofAdditives[name], name, ax)
+            if debug == True:
+                st.text(f"{annotateNodes}")
+                st.text(f"{annotateNodes[0][0]}, {annotateNodes[2][1]}")
+            
+            # text um halbe höhe runterschieben
+            halfHeight = (annotateNodes[2][1] - annotateNodes[1][1]) / 2 # höhere Y-Koordinate minus untere Y-Koordinate, geteilt durch 2
+
+            ax.annotate(f"- {name}", (annotateNodes[1][0], annotateNodes[2][1] - halfHeight), xytext=(10, 0), textcoords='offset points', va='center', fontsize=8, annotation_clip=False)
+            ax.annotate(f"{st.session_state.completeRoofAdditives[name]}kN/m²", (annotateNodes[1][0] - (trussDistance / 2), annotateNodes[2][1] - halfHeight), xytext=(0, 0), textcoords='offset points', ha='center', va='center', fontsize=8, annotation_clip=False, color="black")
+
+            stackPatch = plt.Polygon(annotateNodes, facecolor=st.session_state.roofColors[name], closed = True, edgecolor=st.session_state.roofColors[name], alpha=0.15, zorder=2 )
+            ax.add_patch(stackPatch)
+
+            colorTurn += 1
+
+        ax.annotate(f"q = {qTotal:.2f}kN/m²", (minNodeLEF + trussDistance ,start_height_stack + minNodeLEFy + 4.5 + (st.session_state.stackStartHeight / 2)), xytext=(-100, -5), textcoords='offset points', ha="center", va='center', fontsize=8, annotation_clip=False)
+        
+        if "stackStartHeight" in st.session_state:
+            del st.session_state["stackStartHeight"]
+
+        
+
     measure = 0
     while measure < 3:
         ax.plot((minNodeLEF + 3) + measure * trussDistance, minNodeLEFy / 2, "k+", markersize=10)
@@ -510,15 +689,16 @@ def draw_LEF():
     ax.set_xlim([0, 2 * trussDistance + 2 * minNodeLEF + 3])
     ax.set_ylim([0, 2 * 4 + 2 * minNodeLEF])
 
-    ax.set_aspect('equal', adjustable='datalim')
-
     # Add LEF on top
     ax.add_patch(LEF_graph0)
     ax.add_patch(LEF_graph1)
     ax.add_patch(LEF_graph2)
 
+    #for patch in stackPatches:
+        #ax.add_patch(patch)
 
-    ax.annotate(f"q = g + w + s\nq = {float(roofForce):.2f} kN/m² + {float(windForce):.2f} kN/m² + {float(snowForce):.2f} kN/m²\n\nq = {float(qTotal):.2f} kN/m²", ((2 * trussDistance + 2 * minNodeLEF + 3)/2, 2 * 4 + 2 * minNodeLEF- minNodeLEF), xytext=(0, 0), textcoords='offset points', ha='center', va='center', fontsize=8, annotation_clip=False)
+    if lastAnzeige == "Einfach":
+        ax.annotate(f"q = g + w + s\nq = {float(roofForce):.2f} kN/m² + {float(windForce):.2f} kN/m² + {float(snowForce):.2f} kN/m²\n\nq = {float(qTotal):.2f} kN/m²", ((2 * trussDistance + 2 * minNodeLEF + 3)/2, 2 * 4 + 2 * minNodeLEF- minNodeLEF), xytext=(0, 0), textcoords='offset points', ha='center', va='center', fontsize=8, annotation_clip=False)
 
 
     # Remove axis labels
@@ -530,6 +710,8 @@ def draw_LEF():
     ax.spines['bottom'].set_visible(False)
     ax.spines['left'].set_visible(False)
 
+    ax.set_aspect('equal', adjustable='datalim')
+
     # Show the plot
     st.pyplot(fig, use_container_width=True)
 
@@ -537,6 +719,14 @@ def draw_LEF():
         st.text(f"zusätzliche Lasten: {roofAdded}")
         st.text(f"Lasten: {st.session_state.roofAdditives}")
 
+def analyze_truss():
+    if trussType == "Strebenfachwerk":
+        nodesNr = (fieldNumber * 2) + 3
+        diagonalLength = math.sqrt((pow(distanceNode/2, 2)) + (pow(trussHeight, 2)))
+        lengthTotal = (2*trussWidth) + (2*trussHeight) + ((fieldNumber*2) * diagonalLength)
+        return nodesNr, lengthTotal
+    else:
+        return False
 
 def calc_strebewerk():
 
@@ -569,20 +759,16 @@ def calc_strebewerk():
     global maxForce
     maxForce = maxForceO
 
-    st.text(f"Maximale Zugkraft im Untergurt: {abs(maxForceU):.2f} kN")
-    st.text(f"Kraft im mittleren Diagonalstab: {abs(ForceDmiddle):.2f} kN")
     st.text(f"Maximale Druckkraft im Obergurt: {abs(maxForceO):.2f} kN")
+    st.text(f"Kraft im mittleren Diagonalstab: {abs(ForceDmiddle):.2f} kN")
+    st.text(f"Maximale Zugkraft im Untergurt: {abs(maxForceU):.2f} kN")
+    
 
 
     if debug == True:
             st.text(f"Kraft im mittleren Diagonalstab: {abs(ForceDmiddle):.2f} kN")
             st.text(f"generiert bis Fach: {math.ceil(fieldNumber/2)}")
             st.text(f"Qs generiert: {len(qNum)}\nmit Werten: {qNum}\ninsgesamt Momente: {float(qProd):.2f}")
-            # Mathematical expression in LaTeX format
-            math_expression = r"\frac{5}{4} + \frac{\sqrt{a^2 + b^2}}{c}"
-
-            # Display the mathematical expression using st.latex
-            st.latex(math_expression)
 
     return maxForce
 
@@ -610,6 +796,17 @@ def stress_verification(): # Spannungsnachweis zur Wahl des ersten Querschnitts
         area = values[0]
         if area > areaCalc:
             chosenProfile = profil
+
+            with col5:
+                with stress_expander:
+                    A_min = r"A_{min}"
+                    st.text(f"σ = {sigma_rd} kN/cm²")
+                    st.text(f"Nd = Nmax * 1.4 \nNd = {(abs(maxForce)*1.4):.2f} kN")
+                    math_expression = r"A_{min} = \frac{{Nd}}{{\sigma_{Rd}}}"
+                    math_expression2 = f"{A_min} = {areaCalc:.2f} cm²"
+                    st.latex(math_expression)
+                    st.latex(math_expression2)
+            
             if debug == True:
                 with col5:
                     st.text(f"Profil: {chosenProfile}")
@@ -624,7 +821,7 @@ def stress_verification(): # Spannungsnachweis zur Wahl des ersten Querschnitts
     
     
 
-def check_bend(min_i):
+def check_bend(min_i, A):
 
     global maxForce
     global chosenProfile
@@ -636,13 +833,25 @@ def check_bend(min_i):
 
             check = sigma_rd * k
         
-            if check > (-maxForce*1.4)/materialSelect[material][profile][chosenProfile][0]:  # sigma*k > Nd/A
-        
+            if check > (-maxForce*1.4)/A:  # sigma*k > Nd/A
+                math_expression = r"\sigma_{Rd} \cdot k > \frac{{Nd}}{{A}}"
+                math_expression2 = f"{check:.2f} > {((-maxForce*1.4)/A):.2f}"
+
+                with st.expander("Knicknachweis"):
+                    
+                    
+                    st.text(f"A = {A} cm²")
+                    st.text(f"k = {k}\nbei λ = {int(lambdaCalc)}")
+                    
+
+                    # Display the mathematical expression using st.latex
+                    st.latex(math_expression)
+                    st.latex(math_expression2)
+                
                 if debug == True:
                     st.text(f"Lambda: {lambdaCalc}")
                     st.text(f"k = {k}")
-                    math_expression = f"sigma_r \\cdot k > \\frac{{Nd}}{{A}}"
-                    math_expression2 = f"{check:.2f} > {(-maxForce*1.4)/materialSelect[material][profile][chosenProfile][0]:.2f}"
+                    
 
                     # Display the mathematical expression using st.latex
                     st.latex(math_expression)
@@ -661,14 +870,33 @@ def bend_verification():
 
     for profil, values in materialSelect[material][profile].items():
         if extract_numerical_part(profil) >= extract_numerical_part(chosenProfile):
+            stressProfile = chosenProfile
             if debug == True:
-                st.text(f"{profil} ist größer als {chosenProfile}")
+                st.text(f"Teste Profil: {profil}")
             min_i = values[1]
-            if check_bend(min_i) == True:
+            A = values[0]
+            if check_bend(min_i, A) == True:
                 chosenProfile = profil
-                st.title(f"{chosenProfile} {profile}")
-                st.markdown(f'<font color="green">Der Querschnitt {chosenProfile} in {material} {profile} besteht den Knicktest!</font>', unsafe_allow_html=True)
+                with stress_expander:
+                    A_gew = r"A_{gew}"
+                    math_expression = f"{A_gew}({profil}) = {materialSelect[material][profile][chosenProfile][0]:.2f} cm²"
+                    st.latex(math_expression)
+                st.title(f'{chosenProfile} {profile}')
+                searchTerm = f"{chosenProfile} {profile} Profil Maße Tabelle"
+                searchTerm_noSpaces = searchTerm.replace(" ", "+")
                 
+                st.markdown(f'<span style="color: green;">Der Querschnitt {chosenProfile} in {material} {profile} besteht die erforderlichen Nachweise!</font>', unsafe_allow_html=True)
+                st.link_button(f"Kennwerte zu {chosenProfile} {profile}", url=f"https://www.google.com/search?q={searchTerm_noSpaces}", use_container_width=True)
+                #st.markdown(f'[Kennwerte zu {chosenProfile} {profile}](https://www.google.com/search?q={searchTerm_noSpaces})')
+                
+                if analyze_truss() != False:
+                    nodesNr, lengthTotal = analyze_truss()
+                    volumeTotal = (lengthTotal * materialSelect[material][profile][chosenProfile][0])/1000
+                    with st.expander("weitere Informationen"):
+                        st.subheader(f"Es werden {nodesNr} Knoten konstruiert und {volumeTotal:.2f}m³ {material} benötigt.")
+                        #st.subheader(f"Der Spannungsnachweis benötigt einen {stressProfile} Querschnitt.")
+                    
+
                 return chosenProfile
         #else:
             #st.text(f"{profil} ist nicht größer als {chosenProfile}")
@@ -677,6 +905,133 @@ def bend_verification():
         #st.markdown(":red[Es gibt keinen passenden Querschnitt für]")
 
 
+
+def draw_truss2():
+    minNodeX = trussWidth / 5
+    minNodeY = trussWidth / 5
+    maxNode = minNodeY + trussHeight
+    distanceNode = trussWidth / fieldNumber
+
+    nodeLower = [(float((minNodeX + (distanceNode / 2)) + i * distanceNode), minNodeY) for i in range(int(fieldNumber))]
+    nodeUpper = [(float(minNodeX + i * distanceNode), maxNode) for i in range(int(fieldNumber + 1))]
+
+    nodeArray = [item for pair in zip(nodeUpper, nodeLower) for item in pair]
+    if len(nodeLower) < len(nodeUpper):
+        nodeArray.extend(nodeUpper[len(nodeLower):])
+
+    edges = [(1, 0), (0, 2), (2, 1)]
+
+    for i in range(0, int(fieldNumber-1)):
+        edges.extend([(1 + 2 * i, 3 + 2 * i), (3 + 2 * i, 4 + 2 * i), (4 + 2 * i, 2 + 2 * i), (2 + 2 * i, 3 + 2 * i)])
+
+    # Create a figure
+    fig, ax = plt.subplots()
+
+    # Check if edges and nodeArray are not empty
+    if edges and nodeArray:
+        # Draw edges as LineCollection
+        edge_collection = LineCollection([(nodeArray[edge[0]], nodeArray[edge[1]]) for edge in edges], color='red', linewidth=2, zorder=2)
+        ax.add_collection(edge_collection)
+
+
+
+
+    # Draw nodes
+    # ax.scatter erwartet x_values und y_values als seperate arguments. zip(*nodeLower) sortiert alle tuple in x und y
+    # *zip(*nodeLower) löst dann x und y jeweils als einzelne tupel aus.
+    ax.scatter(*zip(*nodeLower), color='black', s=20, zorder=3)
+    ax.scatter(*zip(*nodeUpper), color='black', s=20, zorder=3) # zorder gibt die Reihenfolge an in der die Objekte gezeichnet werden
+
+    # Remove axis labels
+    ax.set_xticks([])
+    ax.set_yticks([])
+
+    # Set plot limits
+    ax.set_xlim([0, trussWidth + 2 * minNodeX])
+    ax.set_ylim([0, trussHeight + 2 * minNodeY])
+
+    ax.set_aspect(2, adjustable='datalim')
+
+    ax.spines['top'].set_visible(False)
+    ax.spines['right'].set_visible(False)
+    ax.spines['bottom'].set_visible(False)
+    ax.spines['left'].set_visible(False)
+
+    # Show the plot
+    st.pyplot(fig, use_container_width=True)
+
+
+def draw_truss3():
+    minNodeX = trussWidth / 5
+    minNodeY = trussWidth / 5
+    maxNode = minNodeY + trussHeight
+    distanceNode = trussWidth / fieldNumber
+
+    nodeLower = [(float((minNodeX + (distanceNode / 2)) + i * distanceNode), minNodeY) for i in range(int(fieldNumber))]
+    nodeUpper = [(float(minNodeX + i * distanceNode), maxNode) for i in range(int(fieldNumber + 1))]
+
+    nodeArray = [item for pair in zip(nodeUpper, nodeLower) for item in pair]
+    if len(nodeLower) < len(nodeUpper):
+        nodeArray.extend(nodeUpper[len(nodeLower):])
+
+    edges = [(1, 0), (0, 2), (2, 1)]
+
+    for i in range(0, int(fieldNumber -1)):
+        edges.extend([(1 + 2 * i, 3 + 2 * i), (3 + 2 * i, 4 + 2 * i), (4 + 2 * i, 2 + 2 * i), (2 + 2 * i, 3 + 2 * i)])
+
+    # Create a figure
+    fig, ax = plt.subplots()
+
+    nodeCorner = [
+        (nodeUpper[0][0], nodeUpper[0][1] - trussHeight),
+        (nodeUpper[-1][0], nodeUpper[-1][1] - trussHeight)
+    ]
+    
+    ax.plot([nodeArray[0][0], nodeCorner[0][0]], [nodeArray[0][1], nodeCorner[0][1]], "k-", linewidth=2)
+    ax.plot([nodeCorner[1][0], nodeCorner[0][0]], [nodeCorner[1][1], nodeCorner[0][1]], "k-", linewidth=2)
+    ax.plot([nodeArray[-1][0], nodeCorner[1][0]], [nodeArray[-1][1], nodeCorner[1][1]], "k-", linewidth=2)
+
+    # Check if edges and nodeArray are not empty
+    if edges and nodeArray:
+        # Draw edges as LineCollection
+        edge_collection = LineCollection([(nodeArray[edge[0]], nodeArray[edge[1]]) for edge in edges], color='black', linewidth=2, zorder=2)
+        ax.add_collection(edge_collection)
+
+    # Draw nodes in black
+    for node in nodeCorner:
+        ax.plot(node[0], node[1], "k^", markersize=10)
+
+    for node in nodeLower:
+        ax.plot(node[0], node[1], 'ko', markersize=5)
+
+    for node in nodeUpper:
+        ax.plot(node[0], node[1], "ko", markersize=5)
+
+    # Draw nodes
+    # ax.scatter erwartet x_values und y_values als seperate arguments. zip(*nodeLower) sortiert alle tuple in x und y
+    # *zip(*nodeLower) löst dann x und y jeweils als einzelne tupel aus.
+    #ax.scatter(*zip(*nodeLower), color='black', s=20, zorder=3)
+    #ax.scatter(*zip(*nodeUpper), color='black', s=20, zorder=3) # zorder gibt die Reihenfolge an in der die Objekte gezeichnet werden
+
+    # Remove axis labels
+    ax.set_xticks([])
+    ax.set_yticks([])
+
+    # Set plot limits
+    ax.set_xlim([0, trussWidth + 2 * minNodeX])
+    ax.set_ylim([0, trussHeight + 2 * minNodeY])
+
+    ax.set_aspect(2, adjustable='datalim')
+
+    ax.spines['top'].set_visible(False)
+    ax.spines['right'].set_visible(False)
+    ax.spines['bottom'].set_visible(False)
+    ax.spines['left'].set_visible(False)
+
+    # Show the plot
+    st.pyplot(fig, use_container_width=True)
+
+    
 
 
 
@@ -689,6 +1044,7 @@ def main():
     with col4:
         draw_truss()
     with col6:
+        draw_truss3()
         calc_strebewerk()
     with col5:
         if stress_verification() != False:
