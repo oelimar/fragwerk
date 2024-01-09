@@ -13,22 +13,32 @@ import copy # um st.session_state werte zu kopieren ohne diese weiter zu referen
 import requests # um material.json auf github abzufragen
 
 st.set_page_config(
-    page_title="Fachwerkrechner",
-    layout="wide"
+    page_title="fragwerk Fachwerkrechner",
+    layout="wide",
+    page_icon=":abacus:"
 )
 
 #svg_path = r"C:\Users\DerSergeant\Desktop\fragwerk\fragwerk.png"
 
+
+
 st.title("")
 st.image("https://raw.githubusercontent.com/oelimar/images/main/fragwerk.png", width=300)
-st.title("dein Fachwerkrechner")
-debug = st.toggle("Debug Mode")
-st.title("")
+
+col0_1, col0_2 = st.columns([0.8, 0.2], gap="large")
+with col0_1:
+    st.title("dein Fachwerkrechner")
+    st.title("")
+
+with col0_2:
+    Tester = st.toggle("Tester",)
+    debug = st.toggle("Debug Mode")
+    #st.text_input("test", label_visibility="collapsed", value="test", disabled=True, type="password")
 
 trussOptions = [
     "Strebenfachwerk",
-    "Dreiecksfachwerk",
-    "Polonceau Träger"
+    "Parallelträger",
+    "Dreiecksfachwerk"
 ]
 
 roofOptions = {
@@ -58,8 +68,12 @@ defaultPathGithub = "https://raw.githubusercontent.com/oelimar/images/main/mater
 def load_json_file(file_url, file_path):
     try:
         response = requests.get(file_url)
+        st.text(response)
         response.raise_for_status()
+        st.text(response.raise_for_status())
         materialSelect = json.loads(response.text)
+        st.text(response.text)
+        st.text(f"loaded Github URL")
         return materialSelect
 
     except Exception as e:
@@ -68,10 +82,109 @@ def load_json_file(file_url, file_path):
             st.text(f"local File had to be used. Error: {e}")
         return materialSelect
 
-materialSelect = load_json_file(defaultPathGithub, defaultPathLocal)
+if "loaded_json" not in st.session_state:
+    st.session_state.loaded_json = load_json_file(defaultPathGithub, defaultPathLocal)
+
+materialSelect = st.session_state.loaded_json
 
 #with open(r"C:\Users\DerSergeant\Desktop\fragwerk\materials.json", "r") as json_file:
     #materialSelect = json.load(json_file)
+
+
+
+
+
+
+def draw_parallel_truss(num_nodes, force_range):
+    # Generate random forces for each strut
+    forces = [random.uniform(force_range[0], force_range[1]) for _ in range(num_nodes - 1)]
+    st.text(forces)
+    length = 1
+
+    # Generate node positions
+    nodes = np.linspace(0, 1, num_nodes)
+
+    nodes = []
+    
+    i = 0
+    while i <= num_nodes:
+        if i % 2 != 0:
+            nodes.append((i*(length/num_nodes), 0.1))
+        if i % 2 == 0:
+            nodes.append((i*(length/num_nodes), 0))
+        i += 1
+
+    st.text(nodes)
+    st.text(range(num_nodes - 1))
+    # Create Matplotlib figure
+    fig, ax = plt.subplots()
+    ax.set_aspect('equal', adjustable='datalim')  # Equal aspect ratio for a clearer visualization
+
+    # Plot the truss with individual line widths representing the force
+    for i in range(num_nodes - 1):
+        if forces[i] < 0:
+            color = "red"
+        elif forces[i] > 0:
+            color = "blue"
+        else:
+            color = "black"
+        width = 0.1 + 2 * (forces[i] - force_range[0]) / (force_range[1] - force_range[0])  # Scale line width based on force
+        if int(forces[i]) == 0:
+            width = 0.1
+        ax.plot([nodes[i][0], nodes[i + 1][0]], [nodes[i][1], nodes[i + 1][1]], color=color, linewidth=width)
+        for node in nodes:
+            ax.plot(node[0], node[1], color="black", marker='o', markersize=3)
+
+    ax.set_xlim(0, 1)
+    ax.set_ylim(-1, 1)
+    ax.axis('off')  # Turn off axis labels
+
+    st.pyplot(fig)
+
+
+if Tester == True:
+    num_nodes = st.slider("Number of Nodes:", min_value=2, max_value=20, value=10)
+    force_range = st.slider("Force Range:", min_value=-10.0, max_value=10.0, value=(2.0, 8.0))
+    draw_parallel_truss(num_nodes, force_range)
+
+
+
+
+
+
+
+
+
+
+
+snow_mapping_2 = {
+            1: 1.05,
+            2: 2.06,
+            3: 3.07
+        }
+wind_mapping_2 = {
+            1: 0.5,
+            2: 0.7,
+            3: 0.9,
+            4: 1.2
+        }
+
+snow_mapping = {
+    200 : (0.65, 0.85, 1.10),
+    300 : (0.65, 0.89, 1.29),
+    400 : (0.65, 1.21, 1.78),
+    500 : (0.84, 1.60, 2.37),
+    600 : (1.05, 2.06, 3.07),
+    700 : (1.30, 2.58, 3.87),
+    800 : (1.58, 3.17, 4.76),
+    900 : (None, 3.83, 5.76),
+    1000 : (None, 4.55, 6.86),
+    1100 : (None, 5.33, 8.06),
+    1200 : (None, 6.19, 9.36),
+    1300 : (None, None, 10.76),
+    1400 : (None, None, 12.26),
+    1500 : (None, None, 13.86)
+}
 
 
 
@@ -136,8 +249,13 @@ lambda_values = {
 }
 
 sigmas = {
-    "Holz" : 1.3,
-    "Stahl" : 21.8
+    "Holz" : (1.3, 0.9), # (Druck, Zug)
+    "Stahl" : (21.8, 21.8)
+}
+
+fieldSettings = {
+    "Strebenfachwerk" : (1, 3, 3), # step, start value, min value
+    "Parallelträger"  : (2, 4, 4)
 }
 
 with st.container():
@@ -146,18 +264,6 @@ with st.container():
 
 
     with col1:
-        #st.text("Eingabe LEF")
-        snow_mapping = {
-            1: 1.05,
-            2: 2.06,
-            3: 3.07
-        }
-        wind_mapping = {
-            1: 0.5,
-            2: 0.7,
-            3: 0.9,
-            4: 1.2
-        }
 
         trussDistance = float(st.text_input("Träger Abstand [m]", value="5"))
 
@@ -202,10 +308,17 @@ with st.container():
                 """
 
 
+        
+        
+        
+        
         # Apply custom CSS
-        st.markdown(custom_css, unsafe_allow_html=True)
+        #st.markdown(custom_css, unsafe_allow_html=True)
 
-        lastAnzeige = st.radio("Anzeige Lasten", ["Einfach", "Erweitert"], 0, horizontal=True)
+        #lastAnzeige = st.radio("Anzeige Lasten", ["Einfach", "Erweitert"], 0, horizontal=True)
+        lastAnzeige = "Einfach"
+
+
 
 
 
@@ -251,13 +364,35 @@ with st.container():
                 if st.session_state.currentSelection == None:
                     st.session_state.currentSelection = {}
                 st.session_state.currentSelection[customAdditive] = float_value
-                st.experimental_rerun()
+                st.rerun()
                     
             except ValueError:
                 st.markdown(":red[Last unzulässig. Bitte Wert in [kN/m²] angeben.]")
             #return roofAdditives
 
         with st.expander("veränderliche Lasten"):
+            
+            heightZone = st.text_input("Geländehöhe über NN [m]", value=400 )
+
+            if int(heightZone) > 1500:
+                st.markdown(":red[Werte bis maximal 1500m!]")
+                st.markdown(f"Es werden anstelle von {heightZone}m die Werte für 1500m angezeigt.")
+                heightZone = 1500
+
+            for height in snow_mapping.keys():
+                if int(height) >= int(heightZone):
+                    if debug == True:
+                        st.text(height)
+                    snowHeight = height
+                    break
+            
+            
+            if snow_mapping[snowHeight][0] == None: # anpassen der maximal/mininmalwerte für Schneezonen in Bezug auf Geländehöhe
+                snowMinValue = 2
+                if snow_mapping[snowHeight][1] == None: # anpassen der maximal/mininmalwerte für Schneezonen in Bezug auf Geländehöhe
+                    snowMinValue = 3
+            else:
+                snowMinValue = 1
 
             col1_4, col1_5 = st.columns([0.5, 0.5], gap="small")
             with col1_4:
@@ -265,11 +400,13 @@ with st.container():
                 st.image("https://encrypted-tbn0.gstatic.com/images?q=tbn:ANd9GcShbi3oQsR2FrAbMAkfjh-Fw-ODeuYsS9NZrAojIXYJCWXZsK65qCyQejR-QJaFzEmheEY&usqp=CAU", caption="Windlastzonen in DE")
 
             with col1_5:
-                snowZone = st.number_input("Schneelastzone", help="Wähle Anhand der Lage auf der Karte eine der 3 Schneelastzonen", step=1, value=3, min_value=1, max_value=3)
+                snowZone = st.number_input("Schneelastzone", help="Wähle Anhand der Lage auf der Karte eine der 3 Schneelastzonen", step=1, value=snowMinValue, min_value=snowMinValue, max_value=3)
                 st.image("https://encrypted-tbn0.gstatic.com/images?q=tbn:ANd9GcQ4A-8ZgmAVEg-fwtBN1ndVuCaCfbG3p5VOpwya0ZXY7NljUrRNvYoH4Hng9DVW0TriyDM&usqp=CAU", caption="Schneelastzonen in DE")
 
-        snowForce = snow_mapping[snowZone] * 0.8 # berechnung wie in Tabellenbuch
-        windForce = wind_mapping[windZone] * 0.2
+        snowForce = snow_mapping_2[snowZone] * 0.8 # berechnung wie in Tabellenbuch
+        snowForce = snow_mapping[snowHeight][snowZone - 1] * 0.8
+
+        windForce = wind_mapping_2[windZone] * 0.2
         roofForce = roofOptions[roofType]
 
         for force in roofAdded:
@@ -286,10 +423,17 @@ with st.container():
     col3, col4 = st.columns([0.4, 0.6], gap="large")
     
     with col3:
-        trussType = st.selectbox("Fachwerkart", placeholder="Wähle ein Fachwerk", options=trussOptions)
+        
+
+        trussType = st.selectbox("Fachwerkart", placeholder="Wähle ein Fachwerk", options=trussOptions, index=0)
+
+        if trussType == "Parallelträger":
+            strebenParallel = st.selectbox("Streben", options=["Fallende Diagonalen", "Steigende Diagonalen"], label_visibility="collapsed",)
+
         trussWidth = float(st.text_input("Spannweite [m]", value="12"))
         trussHeight = float(st.text_input("Statische Höhe [m]", value=trussWidth/10))
-        fieldNumber = int(st.number_input("Anzahl an Fächern", step=1, value=5, min_value=2, max_value=20))
+
+        fieldNumber = int(st.number_input("Anzahl an Fächern", step=fieldSettings[trussType][0], value=fieldSettings[trussType][1], min_value=fieldSettings[trussType][2], max_value=20))
         distanceNode = round(trussWidth / fieldNumber, 2)
 
 with st.container():
@@ -297,6 +441,9 @@ with st.container():
     col5, col6 = st.columns([0.4, 0.6], gap="large")
 
     with col5:
+        
+        strutToCheck = st.selectbox("Dimensionierung durchführen an", ["Obergurt", "Streben", "Untergurt"], index=0)
+        
         col5_1, col5_2 = st.columns([0.5, 0.5], gap="small")
         #st.text("Eingabe Querschnitt")
 
@@ -315,8 +462,12 @@ with st.container():
             if sigmaInput:
                 sigma_rd = sigmaInput
 
+        
+
         stress_expander = st.expander("Spannungsnachweis")
 
+    with col6:
+        col6_1, col6_2, col6_3 = st.columns([0.3, 0.3, 0.3], gap="medium")
 
 def draw_q_over_truss(minNodeX, minNodeY, ax):
     qNodes = [
@@ -329,9 +480,133 @@ def draw_q_over_truss(minNodeX, minNodeY, ax):
     ax.fill([point[0] for point in qNodes], [point[1] for point in qNodes], color="white", facecolor="lightblue", hatch="|", alpha=0.7)
     ax.annotate(f"q = {float(qTotalField):.2f} kN/m", (minNodeX + trussWidth / 2, minNodeY + 0.5 + trussHeight * 4.5/3), xytext=(0, 0), textcoords='offset points', ha='center', va='center', fontsize=8, annotation_clip=False)
 
+def draw_mass_band(minNodeX, minNodeY, ax):
     
+    ax.plot(minNodeX, minNodeY / 2, "k+", markersize=10)
+    ax.plot(minNodeX + trussWidth, minNodeY / 2, "k+", markersize=10)
+    ax.plot([minNodeX, minNodeX + trussWidth], [minNodeY / 2, minNodeY / 2], "k-", linewidth=1)
 
-def draw_truss():
+    measure = 0
+    while measure < fieldNumber + 1:
+        ax.plot(minNodeX + measure * distanceNode, 2* minNodeY / 3, "k+", markersize=10)
+        if measure < fieldNumber:
+            ax.plot([minNodeX + measure * distanceNode, minNodeX + (measure + 1) * distanceNode],[2 * minNodeY / 3, 2 * minNodeY / 3], "k-", linewidth=1)
+            ax.annotate(f"{float(distanceNode):.2f}m", (minNodeX + distanceNode / 2 + measure * distanceNode, 3 * minNodeY / 4), xytext=(0, 0), textcoords='offset points', ha='center', va='center', fontsize=8, annotation_clip=False)
+        measure += 1
+
+    # create Massband Hoehe
+    ax.plot(minNodeX / 2, minNodeY, "k+", markersize=10)
+    ax.plot(minNodeX / 2, minNodeY + trussHeight, "k+", markersize=10)
+    ax.plot([minNodeX / 2, minNodeX / 2], [minNodeY, minNodeY + trussHeight], "k-", linewidth=1)
+
+    # Annotate width and height
+    ax.annotate(f"{float(trussWidth):.2f}m", (minNodeX + trussWidth / 2, minNodeY / 3), xytext=(0, 0), textcoords='offset points', ha='center', va='center', fontsize=8, annotation_clip=False)
+    ax.annotate(f"{float(trussHeight):.2f}m", (minNodeX / 3, minNodeY + trussHeight / 2), xytext=(0, 0), textcoords='offset points', ha='center', va='center', fontsize=8, rotation=90, annotation_clip=False)
+
+def set_ax_settings(minNodeX, minNodeY, ax):
+
+        # Remove axis labels
+    ax.set_xticks([])
+    ax.set_yticks([])
+
+    ax.set_xlim([0, trussWidth + 2 * minNodeX])
+    ax.set_ylim([0, trussHeight + 2 * minNodeY])
+
+    ax.set_aspect(1.5, adjustable='datalim')
+
+    ax.spines['top'].set_visible(False)
+    ax.spines['right'].set_visible(False)
+    ax.spines['bottom'].set_visible(False)
+    ax.spines['left'].set_visible(False)
+
+def draw_truss_parallel(strebenParallel):
+    minNodeX = trussWidth / 5
+    minNodeY = trussWidth / 5
+    maxNodeY = minNodeY + trussHeight
+    nrNode = int(fieldNumber) + 1
+
+    nodeArray = []
+
+    i = 0
+    while i < nrNode:
+        nodeArray.append((float(minNodeX + i * distanceNode), minNodeY))
+        nodeArray.append((float(minNodeX + i * distanceNode), maxNodeY))
+        i += 1
+
+    fig, ax = plt.subplots()
+
+    edges = []
+
+    i = 0
+    while i < fieldNumber/2:
+        if strebenParallel == "Fallende Diagonalen":
+            edgesFront = [
+                (1 + i*2, 0 + i*2),
+                (0 + i*2, 2 + i*2),
+                (2 + i*2, 1 + i*2),
+                (1 + i*2, 3 + i*2),
+                (3 + i*2, 2 + i*2)
+            ]
+        else:
+            edgesFront = [
+                (0 + i*2, 1 + i*2),
+                (1 + i*2, 3 + i*2),
+                (3 + i*2, 0 + i*2),
+                (0 + i*2, 2 + i*2),
+                (2 + i*2, 3 + i*2)
+            ]
+        edges.extend(edgesFront)
+        i += 1
+
+    while fieldNumber/2 - 1 < i < fieldNumber :
+        if strebenParallel == "Fallende Diagonalen":
+            edgesBack = [
+                (0 + i*2, 1 + i*2),
+                (1 + i*2, 3 + i*2),
+                (3 + i*2, 0 + i*2),
+                (0 + i*2, 2 + i*2),
+                (2 + i*2, 3 + i*2)
+            ]
+        else:
+            edgesBack = [
+                (1 + i*2, 0 + i*2),
+                (0 + i*2, 2 + i*2),
+                (2 + i*2, 1 + i*2),
+                (1 + i*2, 3 + i*2),
+                (3 + i*2, 2 + i*2)
+            ]
+
+        edges.extend(edgesBack)
+        i += 1
+
+    for edge in edges:
+        #st.text(f"Current Edge: {edge}")
+        start_node = nodeArray[edge[0]]
+        #st.text(f"Start Node: {edge}")
+        end_node = nodeArray[edge[1]]
+        #st.text(f"End Node: {edge}")
+        ax.plot([start_node[0], end_node[0]], [start_node[1], end_node[1]], 'r-', linewidth=2)
+
+    nodeCorner = [
+        (nodeArray[0][0], nodeArray[0][1]),
+        (nodeArray[-2][0], nodeArray[-2][1])
+    ]
+
+    for node in nodeArray:
+        ax.plot(node[0], node[1], 'ko', markersize=5)
+    for node in nodeCorner:
+        ax.plot(node[0], node[1], "k^", markersize=10)
+
+    draw_mass_band(minNodeX, minNodeY, ax)
+    draw_q_over_truss(minNodeX, minNodeY, ax)
+    set_ax_settings(minNodeX, minNodeY, ax)
+    st.pyplot(fig, use_container_width=True)
+
+    if debug == True:
+        st.text(nodeArray)
+        st.text(len(nodeArray))
+
+def draw_truss_strebe():
     # Define truss nodes
     minNodeX = trussWidth / 5
     minNodeY = trussWidth / 5
@@ -394,18 +669,18 @@ def draw_truss():
         (2, 1)
     ]
 
-    edgeVar = 0
+    i = 0
 
-    while edgeVar < fieldNumber - 1: #extend the points that are used with every new field in the truss
+    while i < fieldNumber - 1: #extend the points that are used with every new field in the truss
         edgeExtend = [
-            (1 + 2 * edgeVar, 3 + 2 * edgeVar),
-            (3 + 2 * edgeVar, 4 + 2 * edgeVar),
-            (4 + 2 * edgeVar, 2 + 2 * edgeVar),
-            (2 + 2 * edgeVar, 3 + 2 * edgeVar)
+            (1 + 2 * i, 3 + 2 * i),
+            (3 + 2 * i, 4 + 2 * i),
+            (4 + 2 * i, 2 + 2 * i),
+            (2 + 2 * i, 3 + 2 * i)
         ]
         #st.text(edges)
         edges.extend(edgeExtend)
-        edgeVar += 1
+        i += 1
 
 
     # Draw edges in red
@@ -437,51 +712,18 @@ def draw_truss():
         ax.plot(node[0], node[1], "k^", markersize=10)
 
 
-
-
-    # Remove axis labels
-    ax.set_xticks([])
-    ax.set_yticks([])
-
     # Calculate and display truss width and height
     #truss_width = np.max(nodes[:, 0]) - np.min(nodes[:, 0])
     #truss_height = np.max(nodes[:, 1]) - np.min(nodes[:, 1])
 
     # create Massband Gesamtlaenge
-    ax.plot(minNodeX, minNodeY / 2, "k+", markersize=10)
-    ax.plot(minNodeX + trussWidth, minNodeY / 2, "k+", markersize=10)
-    ax.plot([minNodeX, minNodeX + trussWidth], [minNodeY / 2, minNodeY / 2], "k-", linewidth=1)
-
-    measure = 0
-    while measure < fieldNumber + 1:
-        ax.plot(minNodeX + measure * distanceNode, 2* minNodeY / 3, "k+", markersize=10)
-        if measure < fieldNumber:
-            ax.plot([minNodeX + measure * distanceNode, minNodeX + (measure + 1) * distanceNode],[2 * minNodeY / 3, 2 * minNodeY / 3], "k-", linewidth=1)
-            ax.annotate(f"{float(distanceNode):.2f}m", (minNodeX + distanceNode / 2 + measure * distanceNode, 3 * minNodeY / 4), xytext=(0, 0), textcoords='offset points', ha='center', va='center', fontsize=8, annotation_clip=False)
-        measure += 1
-
-    # create Massband Hoehe
-    ax.plot(minNodeX / 2, minNodeY, "k+", markersize=10)
-    ax.plot(minNodeX / 2, minNodeY + trussHeight, "k+", markersize=10)
-    ax.plot([minNodeX / 2, minNodeX / 2], [minNodeY, minNodeY + trussHeight], "k-", linewidth=1)
-
-    # Annotate width and height
-    ax.annotate(f"{float(trussWidth):.2f}m", (minNodeX + trussWidth / 2, minNodeY / 3), xytext=(0, 0), textcoords='offset points', ha='center', va='center', fontsize=8, annotation_clip=False)
-    ax.annotate(f"{float(trussHeight):.2f}m", (minNodeX / 3, minNodeY + trussHeight / 2), xytext=(0, 0), textcoords='offset points', ha='center', va='center', fontsize=8, rotation=90, annotation_clip=False)
-
+    draw_mass_band(minNodeX, minNodeY, ax)
+    
     # Draw LEF Force above Truss
     draw_q_over_truss(minNodeX, minNodeY, ax)
 
+    set_ax_settings(minNodeX, minNodeY, ax)
     # Set plot limits
-    ax.set_xlim([0, trussWidth + 2 * minNodeX])
-    ax.set_ylim([0, trussHeight + 2 * minNodeY])
-
-    ax.set_aspect(2, adjustable='datalim')
-
-    ax.spines['top'].set_visible(False)
-    ax.spines['right'].set_visible(False)
-    ax.spines['bottom'].set_visible(False)
-    ax.spines['left'].set_visible(False)
 
     # Show the plot
     st.pyplot(fig, use_container_width=True)
@@ -494,9 +736,6 @@ def draw_truss():
         st.text(f"Upper Nodes: {nodeUpper}")
         st.text(f"Corner Nodes: {nodeCorner}")
         st.text(f"Combined Nodes: {nodeArray}")
-
-#def draw_stack():
-
 
 def lasten_stack(nodes, last, debugOutput=False):
 
@@ -530,16 +769,6 @@ def lasten_stack(nodes, last, debugOutput=False):
     st.session_state.stackStartHeight += lastHeight
 
     return nodesStack
-
-
-
-
-
-
-    
-
-
-
 
 def draw_LEF():
 
@@ -726,69 +955,185 @@ def analyze_truss():
         diagonalLength = math.sqrt((pow(distanceNode/2, 2)) + (pow(trussHeight, 2)))
         lengthTotal = (2*trussWidth) + (2*trussHeight) + ((fieldNumber*2) * diagonalLength)
         return nodesNr, lengthTotal
+    
+    if trussType == "Parallelträger":
+        nodesNr = (fieldNumber + 1) * 2
+        diagonalLength = math.sqrt((pow(distanceNode, 2)) + (pow(trussHeight, 2)))
+        lengthTotal = (2*trussWidth) + ((fieldNumber + 1)*trussHeight) + (fieldNumber * diagonalLength)
+        return nodesNr, lengthTotal
     else:
         return False
 
 def calc_strebewerk():
 
+    #qTotal = 2.4
+
     diagonalLength = math.sqrt((pow(distanceNode/2, 2)) + (pow(trussHeight, 2)))
     diagonalAlpha = math.asin(trussHeight/diagonalLength)
-    qProd = 0
-    qSum = 0
+    qProd = 0 # summe aller Momente durch Q
+    qSum = 0 # summe aller Q Punktlasten
     qNum = []
     qCount = 1
+    forceAuflager = (qTotal*trussDistance*trussWidth)/2
+    totalLast = qTotal*trussDistance*trussWidth
+    punktLastAussen = totalLast/(fieldNumber * 2)
+
     if math.ceil(fieldNumber/2) == 1:
         qTemp = (float((qTotal*trussDistance*trussWidth)/fieldNumber), float(qCount * (trussWidth/fieldNumber)))  # store Q Value and Q distance in array just for debugging purposes
         qNum.append(qTemp)
     else:
-        while qCount < math.ceil(fieldNumber/2):    # draw forces exactly until the middle pole
+        while qCount < math.ceil(fieldNumber/2):    # draw forces exactly until the middle strut
             qTemp = (float((qTotal*trussDistance*trussWidth)/fieldNumber), float(qCount * (trussWidth/fieldNumber)))  # store Q Value and Q distance in array just for debugging purposes
             qNum.append(qTemp)
             qCount += 1
+        if fieldNumber % 2 == 0:
+            qNum.append(((qTotal*trussDistance*trussWidth)/fieldNumber, 0))
 
     # add all different qMomentums together
     for num in qNum:
         qProd += num[0] * num[1]
-    for num in qNum:
         qSum += num[0]
 
     # calculate U force 
-    maxForceU = ((((qTotal*trussDistance*trussWidth)/(2*fieldNumber)) * math.ceil(fieldNumber/2) * trussWidth/fieldNumber * -1) - qProd + (((qTotal*trussDistance*trussWidth)/2) * math.ceil(fieldNumber/2) * trussWidth/fieldNumber)) / trussHeight
-    ForceDmiddle = (((qTotal*trussDistance*trussWidth)/(2*fieldNumber) + qSum - ((qTotal*trussDistance*trussWidth)/2)) / math.sin(diagonalAlpha))
+    maxForceU = ((punktLastAussen * math.ceil(fieldNumber/2) * trussWidth/fieldNumber * -1) - qProd + ((forceAuflager) * math.ceil(fieldNumber/2) * trussWidth/fieldNumber)) / trussHeight
+    ForceDmiddle = ((punktLastAussen + qSum - (totalLast/2)) / math.sin(diagonalAlpha))
     maxForceO = (-maxForceU - (math.cos(diagonalAlpha)*ForceDmiddle))
 
-    global maxForce
-    maxForce = maxForceO
+    ForceOaussen = ((punktLastAussen * (trussWidth/(fieldNumber*2))) - (forceAuflager * (trussWidth/(fieldNumber*2)))) / trussHeight
+    maxForceD = (forceAuflager - punktLastAussen) / math.sin(diagonalAlpha)
 
-    st.text(f"Maximale Druckkraft im Obergurt: {abs(maxForceO):.2f} kN")
-    st.text(f"Kraft im mittleren Diagonalstab: {abs(ForceDmiddle):.2f} kN")
-    st.text(f"Maximale Zugkraft im Untergurt: {abs(maxForceU):.2f} kN")
+    global maxForce
+
+    if strutToCheck == "Obergurt":
+        maxForce = maxForceO
+    if strutToCheck == "Streben":
+        maxForce = maxForceD
+    if strutToCheck == "Untergurt":
+        maxForce = maxForceU
+
+    with col6_1:
+        st.write(f"Maximale Druckkraft im Obergurt:" if maxForceO < 0 else f"Maximale Zugkraft im Obergurt:")
+        st.write(f":blue[{abs(maxForceO):.2f} kN]" if maxForceO < 0 else f":red[{abs(maxForceO):.2f} kN]")
+    with col6_2:
+        st.write(f"Maximale Druckkraft in äußerster Strebe:" if maxForceD < 0 else f"Maximale Zugkraft in äußerster Strebe:")
+        st.write(f":blue[{abs(maxForceD):.2f} kN]" if maxForceD < 0 else f":red[{abs(maxForceD):.2f} kN]")
+    with col6_3:
+        st.write(f"Maximale Druckkraft im Untergurt:" if maxForceU < 0 else f"Maximale Zugkraft im Untergurt:")
+        st.write(f":blue[{abs(maxForceU):.2f} kN]" if maxForceU < 0 else f":red[{abs(maxForceU):.2f} kN]")
     
 
 
     if debug == True:
+            st.subheader("debug:")
+            st.text(f"Diagonalstab Länge: {diagonalLength}m")
+            st.text(f"Punktlast aussen: {punktLastAussen}")
+            st.text(f"alpha: {math.degrees(diagonalAlpha)}")
             st.text(f"Kraft im mittleren Diagonalstab: {abs(ForceDmiddle):.2f} kN")
-            st.text(f"generiert bis Fach: {math.ceil(fieldNumber/2)}")
             st.text(f"Qs generiert: {len(qNum)}\nmit Werten: {qNum}\ninsgesamt Momente: {float(qProd):.2f}")
+            st.text(f"Kraft im äußeren Obergurt: {ForceOaussen} kN")
 
     return maxForce
+
+def calc_parallel(strebenParallel):
+    
+    #qTotal = 2.4
+    #st.text(qTotal)
+
+    diagonalLength = math.sqrt((pow(distanceNode, 2)) + (pow(trussHeight, 2)))
+    diagonalAlpha = math.asin(trussHeight/diagonalLength)
+    forceAuflager = (qTotal*trussDistance*trussWidth)/2
+    totalLast = qTotal*trussDistance*trussWidth
+    punktLastAussen = totalLast/(fieldNumber * 2)
+    qProd = 0 # summe aller Momente durch Q
+    qSum = 0 # summe aller Q Punktlasten
+    qNum = []
+    
+    i = 1
+    while i < (fieldNumber / 2):
+        qTemp = (totalLast / fieldNumber, i * distanceNode) # Q-Wert, Distanz zu Drehpunkt
+        qNum.append(qTemp)
+        i += 1
+    qNum.append((punktLastAussen, i * distanceNode))
+    qNum.append((-forceAuflager, i * distanceNode))
+    #st.text(len(qNum))
+
+    for num in qNum:
+        qSum += num[0]
+        qProd += (num[0] * num[1])
+        #st.text(f"{qSum} und {qProd}")
+
+    if strebenParallel == "Fallende Diagonalen":
+        ForceDmiddle = (-qSum)/math.sin(diagonalAlpha)
+    else:
+        ForceDmiddle = (qSum)/math.sin(diagonalAlpha)
+
+    maxForceO = (qProd)/trussHeight
+    maxForceU = -maxForceO - (ForceDmiddle*math.cos(diagonalAlpha))
+
+    ForceOaussen = (punktLastAussen * distanceNode) - (forceAuflager * distanceNode)
+    maxForceD = (-punktLastAussen + forceAuflager) / math.sin(diagonalAlpha)
+    if strebenParallel != "Fallende Diagonalen":
+        maxForceD = -maxForceD    
+
+    global maxForce
+
+    if strutToCheck == "Obergurt":
+        maxForce = maxForceO
+    if strutToCheck == "Streben":
+        maxForce = maxForceD
+    if strutToCheck == "Untergurt":
+        maxForce = maxForceU
+
+
+    with col6_1:
+        st.write(f"Maximale Druckkraft im Obergurt:" if maxForceO < 0 else f"Maximale Zugkraft im Obergurt:")
+        st.write(f":blue[{abs(maxForceO):.2f} kN]" if maxForceO < 0 else f":red[{abs(maxForceO):.2f} kN]")
+    with col6_2:
+        st.write(f"Maximale Druckkraft in äußerster Strebe:" if maxForceD < 0 else f"Maximale Zugkraft in äußerster Strebe:")
+        st.write(f":blue[{abs(maxForceD):.2f} kN]" if maxForceD < 0 else f":red[{abs(maxForceD):.2f} kN]")
+    with col6_3:
+        st.write(f"Maximale Druckkraft im Untergurt:" if maxForceU < 0 else f"Maximale Zugkraft im Untergurt:")
+        st.write(f":blue[{abs(maxForceU):.2f} kN]" if maxForceU < 0 else f":red[{abs(maxForceU):.2f} kN]")
+
+    #st.text_area("Ergebnis", f"{resultObergurt}\n{resultStrebe}\n{resultUntergurt}")
+
+    if debug == True:
+            st.subheader("debug:")
+            st.text(f"Diagonalstab Länge: {diagonalLength}m")
+            st.text(f"Punktlast aussen: {punktLastAussen}")
+            st.text(f"total Last: {totalLast}")
+            st.text(f"alpha: {math.degrees(diagonalAlpha)}")
+            st.text(f"Kraft im mittleren Diagonalstab: {abs(ForceDmiddle):.2f} kN")
+            st.text(f"Qs generiert: {len(qNum)}\nmit Werten: {qNum}\ninsgesamt Momente: {float(qProd):.2f}")
+            st.text(f"Kraft im äußeren Obergurt: {ForceOaussen} kN")
+
+def calc(trussType):
+    if trussType == "Strebenfachwerk":
+        calc_strebewerk()
+    if trussType == "Parallelträger":
+        calc_parallel(strebenParallel)
 
 def extract_numerical_part(key):
     # This function extracts the numerical part from a string key
     # Example: "8" -> 8, "12/12" -> 12
     return int(key.split('/')[0]) if '/' in key else int(key)
 
-
 def stress_verification(): # Spannungsnachweis zur Wahl des ersten Querschnitts
     
     global maxForce
-    
-    maxForce_d = -maxForce * 1.4
-    
-    areaCalc = maxForce_d/sigma_rd
-
+    global sigma_rd
     global chosenProfile
 
+    maxForce_d = abs(maxForce) * 1.4
+    
+    if maxForce < 0:
+        sigma_rd = sigmas[material][0]
+    else:
+        sigma_rd = sigmas[material][1]
+
+    areaCalc = maxForce_d/sigma_rd
+
+    
     if debug == True:
         with col5:
             st.text(f"benötigte Oberfläche: {areaCalc:.2f}cm²")
@@ -817,15 +1162,11 @@ def stress_verification(): # Spannungsnachweis zur Wahl des ersten Querschnitts
         st.markdown(f'<font color="red">Es gibt keinen passenden {profile} Querschnitt, der den Spannungstest besteht.</font>', unsafe_allow_html=True)
         return False
     
-    
-    
-    
-    
-
 def check_bend(min_i, A):
 
     global maxForce
     global chosenProfile
+    global sigma_rd
 
     lambdaCalc = (trussWidth/fieldNumber)*100/min_i
 
@@ -863,47 +1204,58 @@ def check_bend(min_i, A):
             else:
                 return False
 
+def profile_success(chosenProfile):
 
+    with stress_expander:
+        A_gew = r"A_{gew}"
+        math_expression = f"{A_gew}({chosenProfile}) = {materialSelect[material][profile][chosenProfile][0]:.2f} cm²"
+        st.latex(math_expression)
+    with col6:
+        st.title(f'{chosenProfile} {profile}')
+        searchTerm = f"{chosenProfile} {profile} Profil Maße Tabelle"
+        searchTerm_noSpaces = searchTerm.replace(" ", "+")
+                
+        st.markdown(f'<span style="color: green;">Der Querschnitt {chosenProfile} in {material} {profile} besteht die erforderlichen Nachweise!</font>', unsafe_allow_html=True)
+        st.link_button(f"Kennwerte zu {chosenProfile} {profile}", url=f"https://www.google.com/search?q={searchTerm_noSpaces}", use_container_width=True)
 
 def bend_verification():
     # iterativer Knicknachweis
     global chosenProfile
+    global maxForce
 
-    for profil, values in materialSelect[material][profile].items():
-        if extract_numerical_part(profil) >= extract_numerical_part(chosenProfile):
-            stressProfile = chosenProfile
-            if debug == True:
-                st.text(f"Teste Profil: {profil}")
-            min_i = values[1]
-            A = values[0]
-            if check_bend(min_i, A) == True:
-                chosenProfile = profil
-                with stress_expander:
-                    A_gew = r"A_{gew}"
-                    math_expression = f"{A_gew}({profil}) = {materialSelect[material][profile][chosenProfile][0]:.2f} cm²"
-                    st.latex(math_expression)
-                st.title(f'{chosenProfile} {profile}')
-                searchTerm = f"{chosenProfile} {profile} Profil Maße Tabelle"
-                searchTerm_noSpaces = searchTerm.replace(" ", "+")
-                
-                st.markdown(f'<span style="color: green;">Der Querschnitt {chosenProfile} in {material} {profile} besteht die erforderlichen Nachweise!</font>', unsafe_allow_html=True)
-                st.link_button(f"Kennwerte zu {chosenProfile} {profile}", url=f"https://www.google.com/search?q={searchTerm_noSpaces}", use_container_width=True)
-                #st.markdown(f'[Kennwerte zu {chosenProfile} {profile}](https://www.google.com/search?q={searchTerm_noSpaces})')
-                
-                if analyze_truss() != False:
-                    nodesNr, lengthTotal = analyze_truss()
-                    volumeTotal = (lengthTotal * materialSelect[material][profile][chosenProfile][0])/1000
-                    with st.expander("weitere Informationen"):
-                        st.subheader(f"Es werden {nodesNr} Knoten konstruiert und {volumeTotal:.2f}m³ {material} benötigt.")
-                        #st.subheader(f"Der Spannungsnachweis benötigt einen {stressProfile} Querschnitt.")
+    if maxForce < 0:
+        for profil, values in materialSelect[material][profile].items():
+            if extract_numerical_part(profil) >= extract_numerical_part(chosenProfile):
+                stressProfile = chosenProfile
+                if debug == True:
+                    st.text(f"Teste Profil: {profil}")
+                min_i = values[1]
+                A = values[0]
+                if check_bend(min_i, A) == True:
+                    profile_success(profil)
                     
+                    if analyze_truss() != False:
+                        nodesNr, lengthTotal = analyze_truss()
+                        volumeTotal = (lengthTotal * materialSelect[material][profile][chosenProfile][0])/1000
+                        analyzeExpander = st.expander("weitere Informationen")
+                        
+                        with analyzeExpander:
+                            st.subheader(f"Es werden {nodesNr} Knoten konstruiert und {volumeTotal:.2f}m³ {material} benötigt.")
+                            #st.subheader(f"Der Spannungsnachweis benötigt einen {stressProfile} Querschnitt.")
+                        
 
-                return chosenProfile
-        #else:
-            #st.text(f"{profil} ist nicht größer als {chosenProfile}")
+                    return chosenProfile
+            #else:
+                #st.text(f"{profil} ist nicht größer als {chosenProfile}")
+        else:
+            st.markdown(f'<font color="red">Es gibt keinen passenden {profile} Querschnitt, der den Knicktest besteht.</font>', unsafe_allow_html=True)
+            #st.markdown(":red[Es gibt keinen passenden Querschnitt für]")
+
     else:
-        st.markdown(f'<font color="red">Es gibt keinen passenden {profile} Querschnitt, der den Knicktest besteht.</font>', unsafe_allow_html=True)
-        #st.markdown(":red[Es gibt keinen passenden Querschnitt für]")
+        profile_success(chosenProfile)
+
+
+
 
 
 
@@ -960,8 +1312,6 @@ def draw_truss2():
 
     # Show the plot
     st.pyplot(fig, use_container_width=True)
-
-
 def draw_truss3():
     minNodeX = trussWidth / 5
     minNodeY = trussWidth / 5
@@ -1022,7 +1372,7 @@ def draw_truss3():
     ax.set_xlim([0, trussWidth + 2 * minNodeX])
     ax.set_ylim([0, trussHeight + 2 * minNodeY])
 
-    ax.set_aspect(2, adjustable='datalim')
+    ax.set_aspect(1.5, adjustable='datalim')
 
     ax.spines['top'].set_visible(False)
     ax.spines['right'].set_visible(False)
@@ -1043,10 +1393,14 @@ def main():
         draw_LEF()
     # Draw the truss
     with col4:
-        draw_truss()
+        if trussType == "Strebenfachwerk":
+            draw_truss_strebe()
+        if trussType == "Parallelträger":
+            draw_truss_parallel(strebenParallel)
     with col6:
-        draw_truss3()
-        calc_strebewerk()
+        #draw_truss3()
+        calc(trussType)
+
     with col5:
         if stress_verification() != False:
             bend_verification()
