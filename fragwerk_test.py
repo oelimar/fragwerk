@@ -35,10 +35,12 @@ with col0_2:
     debug = st.toggle("Debug Mode")
     #st.text_input("test", label_visibility="collapsed", value="test", disabled=True, type="password")
 
+st.markdown(f":red[Das Programm befindet sich noch im Aufbau. Verzeihen Sie eventuelle Fehler oder Mängel.]")
+
 trussOptions = [
     "Strebenfachwerk",
-    "Parallelträger",
-    "Dreiecksfachwerk"
+    "Parallelträger"
+    #"Dreiecksfachwerk"
 ]
 
 roofOptions = {
@@ -68,18 +70,18 @@ defaultPathGithub = "https://raw.githubusercontent.com/oelimar/images/main/mater
 def load_json_file(file_url, file_path):
     try:
         response = requests.get(file_url)
-        st.text(response)
+        #st.text(response)
         response.raise_for_status()
-        st.text(response.raise_for_status())
+        #st.text(response.raise_for_status())
         materialSelect = json.loads(response.text)
-        st.text(response.text)
-        st.text(f"loaded Github URL")
+        #st.text(response.text)
+        #st.text(f"loaded Github URL")
         return materialSelect
 
     except Exception as e:
         with open(file_path, "r") as json_file:
             materialSelect = json.load(json_file)
-            st.text(f"local File had to be used. Error: {e}")
+            #st.text(f"local File had to be used. Error: {e}")
         return materialSelect
 
 if "loaded_json" not in st.session_state:
@@ -258,8 +260,10 @@ fieldSettings = {
     "Parallelträger"  : (2, 4, 4)
 }
 
-with st.container():
-    st.subheader("Lasteinzugsfeld", divider="red")
+
+st.subheader("Lasteinzugsfeld", divider="red")
+with st.container(border=False):
+    
     col1, col2 = st.columns([0.4, 0.6], gap="large")
 
 
@@ -418,8 +422,9 @@ with st.container():
     #with col2:
         #st.text("GRAPH LEF")
 
-with st.container():
-    st.subheader("Fachwerk", divider="red")
+st.subheader("Fachwerk", divider="red")
+with st.container(border=False):
+    
     col3, col4 = st.columns([0.4, 0.6], gap="large")
     
     with col3:
@@ -436,8 +441,10 @@ with st.container():
         fieldNumber = int(st.number_input("Anzahl an Fächern", step=fieldSettings[trussType][0], value=fieldSettings[trussType][1], min_value=fieldSettings[trussType][2], max_value=20))
         distanceNode = round(trussWidth / fieldNumber, 2)
 
-with st.container():
-    st.subheader("Querschnitt", divider="red")
+
+st.subheader("Querschnitt", divider="red")
+with st.container(border=False):
+    
     col5, col6 = st.columns([0.4, 0.6], gap="large")
 
     with col5:
@@ -465,8 +472,13 @@ with st.container():
         
 
         stress_expander = st.expander("Spannungsnachweis")
+        with stress_expander:
+            stress_einheiten = st.container()
+            stress_latex = st.container()
 
     with col6:
+        if "finalArea" not in st.session_state:
+            st.session_state.finalArea = 1.3333333337
         col6_1, col6_2, col6_3 = st.columns([0.3, 0.3, 0.3], gap="medium")
 
 def draw_q_over_truss(minNodeX, minNodeY, ax):
@@ -949,18 +961,38 @@ def draw_LEF():
         st.text(f"zusätzliche Lasten: {roofAdded}")
         st.text(f"Lasten: {st.session_state.roofAdditives}")
 
+def analyze_struts(strutObergurt, strutDiagonal, strutUntergurt, strutElse):
+    strutAll = [strutObergurt, strutDiagonal, strutUntergurt]
+    for strut in strutElse:
+        strutAll.append(strut)
+
+    lengthTotal = 0
+    for nr, length in strutAll:
+        lengthTotal += nr * length
+    return lengthTotal, strutAll
+
 def analyze_truss():
     if trussType == "Strebenfachwerk":
         nodesNr = (fieldNumber * 2) + 3
         diagonalLength = math.sqrt((pow(distanceNode/2, 2)) + (pow(trussHeight, 2)))
-        lengthTotal = (2*trussWidth) + (2*trussHeight) + ((fieldNumber*2) * diagonalLength)
-        return nodesNr, lengthTotal
+        strutDiagonal = [(fieldNumber*2), diagonalLength]   # [Anzahl, Länge der Stäbe]
+        strutObergurt = [fieldNumber, distanceNode]
+        strutUntergurt = [fieldNumber - 1, distanceNode]
+        strutElse = [[2, trussHeight], [2, (distanceNode/2)]]
+        lengthTotal, strutAll = analyze_struts(strutObergurt, strutDiagonal, strutUntergurt, strutElse)
+
+        return nodesNr, lengthTotal, strutAll
     
     if trussType == "Parallelträger":
         nodesNr = (fieldNumber + 1) * 2
         diagonalLength = math.sqrt((pow(distanceNode, 2)) + (pow(trussHeight, 2)))
-        lengthTotal = (2*trussWidth) + ((fieldNumber + 1)*trussHeight) + (fieldNumber * diagonalLength)
-        return nodesNr, lengthTotal
+
+        strutObergurt = strutUntergurt = [fieldNumber, distanceNode]
+        strutDiagonal = [fieldNumber, diagonalLength]
+        strutElse = [[fieldNumber + 1, trussHeight]]
+        lengthTotal, strutAll = analyze_struts(strutObergurt, strutDiagonal, strutUntergurt, strutElse)
+
+        return nodesNr, lengthTotal, strutAll
     else:
         return False
 
@@ -1134,6 +1166,8 @@ def stress_verification(): # Spannungsnachweis zur Wahl des ersten Querschnitts
     areaCalc = maxForce_d/sigma_rd
 
     
+
+    
     if debug == True:
         with col5:
             st.text(f"benötigte Oberfläche: {areaCalc:.2f}cm²")
@@ -1143,15 +1177,17 @@ def stress_verification(): # Spannungsnachweis zur Wahl des ersten Querschnitts
         if area > areaCalc:
             chosenProfile = profil
 
+            if maxForce > 0:
+                st.session_state.finalArea = area
+
             with col5:
                 with stress_expander:
-                    A_min = r"A_{min}"
-                    st.text(f"σ = {sigma_rd} kN/cm²")
-                    st.text(f"Nd = Nmax * 1.4 \nNd = {(abs(maxForce)*1.4):.2f} kN")
-                    math_expression = r"A_{min} = \frac{{Nd}}{{\sigma_{Rd}}}"
-                    math_expression2 = f"{A_min} = {areaCalc:.2f} cm²"
-                    st.latex(math_expression)
-                    st.latex(math_expression2)
+                    with stress_latex:
+                        A_min = r"A_{min}"
+                        math_expression = r"A_{min} = \frac{{Nd}}{{\sigma_{Rd}}}"
+                        math_expression2 = f"{A_min} = {areaCalc:.2f} cm²"
+                        st.latex(math_expression)
+                        st.latex(math_expression2)
             
             if debug == True:
                 with col5:
@@ -1206,10 +1242,15 @@ def check_bend(min_i, A):
 
 def profile_success(chosenProfile):
 
-    with stress_expander:
+    with stress_latex:
         A_gew = r"A_{gew}"
         math_expression = f"{A_gew}({chosenProfile}) = {materialSelect[material][profile][chosenProfile][0]:.2f} cm²"
         st.latex(math_expression)
+    with stress_einheiten:
+        A_min = r"A_{min}"
+        st.text(f"σ = {sigma_rd} kN/cm²\nη = {((((abs(maxForce)*1.4)/materialSelect[material][profile][chosenProfile][0]) / sigma_rd) * 100):.2f} %")
+        st.text(f"Nd = Nmax * 1.4 \nNd = {(abs(maxForce)*1.4):.2f} kN")
+    
     with col6:
         st.title(f'{chosenProfile} {profile}')
         searchTerm = f"{chosenProfile} {profile} Profil Maße Tabelle"
@@ -1233,15 +1274,31 @@ def bend_verification():
                 A = values[0]
                 if check_bend(min_i, A) == True:
                     profile_success(profil)
+                    st.session_state.finalArea = A
                     
                     if analyze_truss() != False:
-                        nodesNr, lengthTotal = analyze_truss()
+                        nodesNr, lengthTotal, strutAll = analyze_truss()
                         volumeTotal = (lengthTotal * materialSelect[material][profile][chosenProfile][0])/1000
                         analyzeExpander = st.expander("weitere Informationen")
                         
                         with analyzeExpander:
-                            st.subheader(f"Es werden {nodesNr} Knoten konstruiert und {volumeTotal:.2f}m³ {material} benötigt.")
+                            #st.subheader(f"Es werden {nodesNr} Knoten konstruiert und {volumeTotal:.2f}m³ {material} benötigt.")
                             #st.subheader(f"Der Spannungsnachweis benötigt einen {stressProfile} Querschnitt.")
+
+                            nr = 0
+                            for strut in strutAll:
+                                if nr == 0:
+                                    st.subheader("Obergurt")
+                                elif nr == 1:
+                                    st.subheader("Streben")
+                                elif nr == 2:
+                                    st.subheader("Untergurt")
+                                elif nr == 3:
+                                    st.subheader("Weitere")
+                                st.text(f"{strut[0]}x {strut[1]:.2f}m")
+                                nr += 1
+
+
                         
 
                     return chosenProfile
