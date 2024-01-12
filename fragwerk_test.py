@@ -32,6 +32,7 @@ with col0_1:
 
 with col0_2:
     #Tester = st.toggle("Tester",)
+    Tester = False
     debug = st.toggle("Debug Mode")
     #st.text_input("test", label_visibility="collapsed", value="test", disabled=True, type="password")
 
