@@ -31,8 +31,7 @@ with col0_1:
     st.title("")
 
 with col0_2:
-    #Tester = st.toggle("Tester",)
-    Tester = False
+    Tester = st.toggle("Tester",)
     debug = st.toggle("Debug Mode")
     #st.text_input("test", label_visibility="collapsed", value="test", disabled=True, type="password")
 
@@ -318,10 +317,10 @@ with st.container(border=False):
         
         
         # Apply custom CSS
-        #st.markdown(custom_css, unsafe_allow_html=True)
+        st.markdown(custom_css, unsafe_allow_html=True)
 
-        #lastAnzeige = st.radio("Anzeige Lasten", ["Einfach", "Erweitert"], 0, horizontal=True)
-        lastAnzeige = "Einfach"
+        lastAnzeige = st.radio("Anzeige Lasten", ["Einfach", "Erweitert"], 0, horizontal=True)
+        #lastAnzeige = "Einfach"
 
 
 
