@@ -15,7 +15,7 @@ import requests # um material.json auf github abzufragen
 st.set_page_config(
     page_title="fragwerk Fachwerkrechner",
     layout="wide",
-    page_icon=":abacus:"
+    page_icon="https://raw.githubusercontent.com/oelimar/images/main/fragwerk_icon.png"
 )
 
 #svg_path = r"C:\Users\DerSergeant\Desktop\fragwerk\fragwerk.png"
