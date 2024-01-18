@@ -364,15 +364,22 @@ with st.container(border=False):
         
         roofTypeExpander = st.expander("Dachaufbau")
         with roofTypeExpander:
-            colRoof_1, colRoof_2 = st.columns([0.5, 0.5])
-            with colRoof_1:
-                #roofType = st.selectbox("Dachaufbau [kN/m²]", placeholder="Wähle einen Dachaufbau", index=1, options=roofOptions.keys())   #old save
-                roofType = st.selectbox("Dachaufbau [kN/m²]", placeholder="Wähle einen Dachaufbau", index=1, options=roofOptions2)
+                
+                
+            #roofType = st.selectbox("Dachaufbau [kN/m²]", placeholder="Wähle einen Dachaufbau", index=1, options=roofOptions.keys())   #old save
+            roofType = st.selectbox("Dachaufbau [kN/m²]", placeholder="Wähle einen Dachaufbau", index=1, options=roofOptions2)
+            st.image("https://www.ing-büro-junge.de/assets/images/Belastungen-Dachschichtenaufbau-2.jpg", use_column_width=True)
 
             roofLayerSum = 0
             flat_data = []
 
-            roofEdit = st.toggle("Dachlagen bearbeiten")
+            # anfängliche Bearbeitbarkeit in Abhängigkeit von Einstellung des Dachaufbaus
+            if roofType == "Eigener Aufbau":
+                roofEditValue = True
+            else:
+                roofEditValue = False
+
+            roofEdit = st.toggle("Dachlagen bearbeiten", value=roofEditValue)
             # roofLayers JSON struktur in Pandas struktur umwandeln
             for layer, (layer_name, value) in roofLayers[roofType].items():
                 flat_data.append({
@@ -394,10 +401,6 @@ with st.container(border=False):
             # Auf 2 Nachkommastellen runden
             roofLayerSum = round(roofLayerSum, 2)
             st.markdown(f"Die Gesamtlast beträgt **{roofLayerSum} kN/m²**.")
-
-
-            with colRoof_2:
-                st.image("https://www.ing-büro-junge.de/assets/images/Belastungen-Dachschichtenaufbau-2.jpg", use_column_width=True)
 
         
 
