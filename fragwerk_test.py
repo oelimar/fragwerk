@@ -1,6 +1,7 @@
 import streamlit as st
 import matplotlib.pyplot as plt
 import numpy as np
+import pandas as pd
 from itertools import zip_longest
 import math
 import json # für material import
@@ -44,9 +45,46 @@ trussOptions = [
 ]
 
 roofOptions = {
-    "Schwer [1]" : 1,
-    "Mittelschwer [0.5]" : 0.5,
-    "Leicht [0.3]" : 0.3
+    "Schwer" : 1,
+    "Mittelschwer" : 0.5,
+    "Leicht" : 0.3
+}
+
+roofOptions2 = [
+    "Schwer",
+    "Mittelschwer",
+    "Leicht",
+    "Eigener Aufbau"
+]
+
+roofLayers = {
+    "Schwer" : {
+        1 : ("Kies 5cm", 1),
+        2 : ("zweilagige Dachabdichtung", 0.15),
+        3 : ("Dämmstoff 20cm", 0.8),
+        4 : ("Dampfsperre", 0.07),
+        5 : ("BSH 4cm", 0.12)
+    },
+    "Mittelschwer" : {
+        1 : ("zweilagige Dachabdichtung", 0.15),
+        2 : ("Dämmstoff 15cm", 0.6),
+        3 : ("Dampfsperre", 0.07),
+        4 : ("Trapezblech", 0.125)
+    },
+    "Leicht" : {
+        1 : ("zweilagige Dachabdichtung", 0.15),
+        2 : ("Dämmstoff 5cm", 0.2),
+        3 : ("Dampfsperre", 0.07),
+        4 : ("Trapezblech", 0.125)
+    },
+    "Eigener Aufbau" : {
+        1 : ("Schicht 1", 0),
+        2 : ("Schicht 2", 0),
+        3 : ("Schicht 3", 0),
+        4 : ("Schicht 4", 0),
+        5 : ("Schicht 5", 0)
+    }
+
 }
 
 roofColors = {
@@ -88,13 +126,6 @@ if "loaded_json" not in st.session_state:
     st.session_state.loaded_json = load_json_file(defaultPathGithub, defaultPathLocal)
 
 materialSelect = st.session_state.loaded_json
-
-#with open(r"C:\Users\DerSergeant\Desktop\fragwerk\materials.json", "r") as json_file:
-    #materialSelect = json.load(json_file)
-
-
-
-
 
 
 def draw_test_truss(num_nodes, force_range):
@@ -278,11 +309,13 @@ fieldSettings = {
     "Parallelträger"  : (2, 4, 4)
 }
 
+# Einstellung der Breiten für das gesamte Layout
+columnsParameters = [0.45, 0.55]
 
 st.subheader("Lasteinzugsfeld", divider="red")
 with st.container(border=False):
     
-    col1, col2 = st.columns([0.4, 0.6], gap="large")
+    col1, col2 = st.columns(columnsParameters, gap="large")
 
 
     with col1:
@@ -327,8 +360,49 @@ with st.container(border=False):
 
 
 
+        
+        
+        roofTypeExpander = st.expander("Dachaufbau")
+        with roofTypeExpander:
+            colRoof_1, colRoof_2 = st.columns([0.5, 0.5])
+            with colRoof_1:
+                #roofType = st.selectbox("Dachaufbau [kN/m²]", placeholder="Wähle einen Dachaufbau", index=1, options=roofOptions.keys())   #old save
+                roofType = st.selectbox("Dachaufbau [kN/m²]", placeholder="Wähle einen Dachaufbau", index=1, options=roofOptions2)
 
-        roofType = st.selectbox("Dachaufbau [kN/m²]", placeholder="Wähle einen Dachaufbau", index=1, options=roofOptions.keys(), help="Wähle einen voreingestellten Dachaufbau für eine Lastannahme.\nÜber 'zusätzliche Lasten' können voreingestellte Elemente ausgewählt,\noder durch drücken des roten Knopfes eigene hinzugefügt werden.")
+            roofLayerSum = 0
+            flat_data = []
+
+            roofEdit = st.toggle("Dachlagen bearbeiten")
+            # roofLayers JSON struktur in Pandas struktur umwandeln
+            for layer, (layer_name, value) in roofLayers[roofType].items():
+                flat_data.append({
+                "Lage": str(layer),
+                "Bezeichnung": layer_name,
+                "Last [kN/m²]": value
+                })
+            # erzeuge DataFrame
+            df = pd.DataFrame(flat_data)
+
+            if roofEdit == True:
+                # erstelle bearbeitbaren DataFrame als Widget
+                edited_df = st.data_editor(df, hide_index=True, num_rows="fixed", use_container_width=True, disabled=["Lage"])
+            else:
+                st.dataframe(df, hide_index=True, use_container_width=True)
+                edited_df = df
+            # Aufsummieren aller Dachschichten
+            roofLayerSum = abs(edited_df["Last [kN/m²]"]).sum()     # abs() damit Negative eingaben trotzdem richtig addiert werden
+            # Auf 2 Nachkommastellen runden
+            roofLayerSum = round(roofLayerSum, 2)
+            st.markdown(f"Die Gesamtlast beträgt **{roofLayerSum} kN/m²**.")
+
+
+            with colRoof_2:
+                st.image("https://www.ing-büro-junge.de/assets/images/Belastungen-Dachschichtenaufbau-2.jpg", use_column_width=True)
+
+        
+
+        
+        
         roofAdded = st.multiselect("Zusätzliche Dachlasten", st.session_state.roofAdditives.keys(), default=roofAdded_default, placeholder="Wähle hier zusätzliche Lasten", label_visibility="collapsed")
 
         if roofAdded != []:
@@ -418,7 +492,7 @@ with st.container(border=False):
         snowForce = snow_mapping[snowHeight][snowZone - 1] * 0.8
 
         windForce = wind_mapping_2[windZone] * 0.2
-        roofForce = roofOptions[roofType]
+        roofForce = roofLayerSum
 
         for force in roofAdded:
             roofForce += st.session_state.roofAdditives[force]
@@ -432,7 +506,7 @@ with st.container(border=False):
 st.subheader("Fachwerk", divider="red")
 with st.container(border=False):
     
-    col3, col4 = st.columns([0.4, 0.6], gap="large")
+    col3, col4 = st.columns(columnsParameters, gap="large")
     
     with col3:
         
@@ -459,7 +533,7 @@ with st.container(border=False):
 st.subheader("Querschnitt", divider="red")
 with st.container(border=False):
     
-    col5, col6 = st.columns([0.4, 0.6], gap="large")
+    col5, col6 = st.columns(columnsParameters, gap="large")
 
     with col5:
         
@@ -890,11 +964,13 @@ def draw_LEF():
 
     completeRoofStack = roofAdded
     
-    st.session_state.completeRoofAdditives["Dachlast"] = roofOptions[roofType]
+    st.session_state.completeRoofAdditives["Dachlast"] = roofLayerSum
     st.session_state.completeRoofAdditives["Windlast"] = round(windForce, 2)
     st.session_state.completeRoofAdditives["Schneelast"] = round(snowForce, 2)
 
+    # Schnee und Windlast zum bestehenden RoofStack hinzufügen
     completeRoofStack.extend(["Schneelast", "Windlast"])
+    # Dachlast auf Index 0 zum bestehenden RoofStack hinzufügen
     completeRoofStack.insert(0, "Dachlast")
 
     if debug == True:
@@ -1285,7 +1361,7 @@ def profile_success(chosenProfile):
         searchTerm = f"{chosenProfile} {profile} Profil Maße Tabelle"
         searchTerm_noSpaces = searchTerm.replace(" ", "+")
                 
-        st.markdown(f'<span style="color: green;">Der Querschnitt {chosenProfile} in {material} {profile} besteht die erforderlichen Nachweise!</font>', unsafe_allow_html=True)
+        st.markdown(f'<span style="color: green;">Der Querschnitt **{chosenProfile}** in **{material} {profile}** erfüllt die erforderlichen Nachweise!</font>', unsafe_allow_html=True)
         st.link_button(f"Kennwerte zu {chosenProfile} {profile}", url=f"https://www.google.com/search?q={searchTerm_noSpaces}", use_container_width=True)
 
 def bend_verification():
