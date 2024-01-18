@@ -15,7 +15,7 @@ import requests # um material.json auf github abzufragen
 st.set_page_config(
     page_title="fragwerk Fachwerkrechner",
     layout="wide",
-    page_icon="https://raw.githubusercontent.com/oelimar/images/main/fragwerk.png"
+    page_icon=":abacus:"
 )
 
 #svg_path = r"C:\Users\DerSergeant\Desktop\fragwerk\fragwerk.png"
@@ -35,7 +35,7 @@ with col0_2:
     debug = st.toggle("Debug Mode")
     #st.text_input("test", label_visibility="collapsed", value="test", disabled=True, type="password")
 
-st.markdown(f":red[Das Programm befindet sich noch im Aufbau. Verzeihen Sie eventuelle Fehler oder Mängel.]")
+#st.markdown(f":red[Das Programm befindet sich noch im Aufbau. Verzeihen Sie eventuelle Fehler oder Mängel.]")
 
 trussOptions = [
     "Strebenfachwerk",
@@ -97,7 +97,7 @@ materialSelect = st.session_state.loaded_json
 
 
 
-def draw_parallel_truss(num_nodes, force_range):
+def draw_test_truss(num_nodes, force_range):
     # Generate random forces for each strut
     forces = [random.uniform(force_range[0], force_range[1]) for _ in range(num_nodes - 1)]
     st.text(forces)
@@ -147,14 +147,32 @@ def draw_parallel_truss(num_nodes, force_range):
 if Tester == True:
     num_nodes = st.slider("Number of Nodes:", min_value=2, max_value=20, value=10)
     force_range = st.slider("Force Range:", min_value=-10.0, max_value=10.0, value=(2.0, 8.0))
-    draw_parallel_truss(num_nodes, force_range)
+    draw_test_truss(num_nodes, force_range)
 
 
+# Funktion um die Eingabe von Werten mit Kommas zu ermöglichen
+def correctify_input(value):
+    try:
+        #variable initialisieren
+        numberString = ""
 
+        #iteriere durch alle Ziffern um Zahlen, Punkte und Kommata zu extrahieren, Falls jemand einen Buchstaben eintippt.
+        for character in str(value):
+            if character.isdigit() or character == "." or character == ",":
+                numberString += character
 
+        valueChanged = str(numberString).replace(",", ".")
+        valuePositive = abs(float(valueChanged))  # make value positive in case anyone is funny enough to enter negative distance
+        return valuePositive
+    except ValueError:
+        return None
 
+# Funktion, um Errormeldung zu schreiben, falls correctify_input ein None returned
+def print_error_and_set_default(default):
+        st.markdown(":red[Bitte gültigen Wert eingeben!]")
+        st.markdown(f"Es wird mit {default}m weitergerechnet.")
 
-
+        return default
 
 
 
@@ -269,7 +287,10 @@ with st.container(border=False):
 
     with col1:
 
-        trussDistance = float(st.text_input("Träger Abstand [m]", value="5"))
+        trussDistanceInput = st.text_input("Träger Abstand [m]", value="5.25")
+        trussDistance = correctify_input(trussDistanceInput)
+        if trussDistance == None:   # falls ungültiger Wert erkannt wird, Warnung anzeigen
+            trussDistance = print_error_and_set_default(5.25)   # standardwert einfügen, damit bei Error script nicht abbricht
 
         #with st.expander("Dachaufbau"):
         if 'roofAdditives' not in st.session_state:
@@ -295,32 +316,13 @@ with st.container(border=False):
             #lastAnzeige_einfach = st.button("Einfach", use_container_width=True)
 
         #with col0_2:
-            #lastAnzeige_einfach = st.button("Erweitert", use_container_width=True)
-        
-        # Custom CSS style for the radio buttons
-        custom_css = """
-                <style>
-                /* Container */
-                [role="radiogroup"] {
-                    display: flex;           /* Use flexbox for layout */
-                    justify-content: space-between; /* Distribute items evenly across the container */
-                    width: 100%;             /* Take up the full width of the parent */
-                    flex-wrap: wrap;         /* Allow items to wrap to the next line if they don't fit */
-                    gap: 10px;               /* Gap between items */
-                }
-                </style>
-                """
+            #lastAnzeige_einfach = st.button("Erweitert", use_container_width=True
 
 
+        # Theoretisch ursprüngliche Auswahlmöglichkeit für Ansicht
+        #lastAnzeige = st.radio("Anzeige Lasten", ["Einfach", "Erweitert"], 0, horizontal=True)
         
-        
-        
-        
-        # Apply custom CSS
-        st.markdown(custom_css, unsafe_allow_html=True)
-
-        lastAnzeige = st.radio("Anzeige Lasten", ["Einfach", "Erweitert"], 0, horizontal=True)
-        #lastAnzeige = "Einfach"
+        lastAnzeige = "Erweitert"   # Ansicht bis aufs weitere als "Erweitert" festgelegt
 
 
 
@@ -335,48 +337,53 @@ with st.container(border=False):
                 st.session_state.currentSelection[name] = copy.deepcopy(st.session_state.roofAdditives[name])
 
 
-        addVal = ""
-        valVal = ""
-
         addButton = st.button("Eigene Last hinzufügen", type="primary", use_container_width=True, disabled=False)
 
         col1_1, col1_2, col1_3 = st.columns([0.5, 0.3, 0.1], gap="small")
         with col1_1:
-            customAdditive = st.text_input("Bezeichnung", label_visibility="collapsed", placeholder="Bezeichnung", value=addVal)
+            customAdditive = st.text_input("Bezeichnung", label_visibility="collapsed", placeholder="Bezeichnung", value="")
         with col1_2:
-            customValue = st.text_input("Last",  label_visibility="collapsed", placeholder="Last in kN/m²", value=valVal)
+            customValueInput = st.text_input("Last",  label_visibility="collapsed", placeholder="Last in kN/m²", value="")
+            customValue = correctify_input(customValueInput)
         with col1_3:
             customColor = st.color_picker("Farbe", label_visibility="collapsed", value="#FFFFFF")
 
+        #addButton = st.button("Eigene Last hinzufügen", type="primary", use_container_width=True, disabled=False)
+
+        # counter, um Anzahl an unbenannten Lasten zu zählen
         if "additiveCounter" not in st.session_state:
             st.session_state.additiveCounter = 1
 
         if addButton:
             try:
+                # test ob Bezeichnugsfeld leer ist
                 if customAdditive == "":
                     customAdditive = "Eigene Last " + str(st.session_state.additiveCounter) # Falls keine Bezeichnung eingetragen wird, wird automatisch immer ein neuer Name generiert.
                     st.session_state.additiveCounter += 1
-                original_string = customValue
-                #substring_to_remove
+
                 float_value = float(customValue)
                 st.session_state.roofAdditives[customAdditive] = float_value
                 if customColor == "#FFFFFF":
                     customColor = "#" + secrets.token_hex(3) # generiere random HEX Farbcode "#123456"
                 st.session_state.roofColors[customAdditive] = customColor
-                addVal = ""
-                valVal = ""
+
                 if st.session_state.currentSelection == None:
                     st.session_state.currentSelection = {}
                 st.session_state.currentSelection[customAdditive] = float_value
                 st.rerun()
                     
-            except ValueError:
+                # Warnung, falls Wert bei Knopfdruck keinen sinnvollen Wert bilden kann
+            except (ValueError, TypeError):     #ValueError, falls nur ein string übrigbleibt; TypeError falls versucht wird float(None) zu bilden, wenn correctify_input() None ausgibt
                 st.markdown(":red[Last unzulässig. Bitte Wert in [kN/m²] angeben.]")
-            #return roofAdditives
 
         with st.expander("veränderliche Lasten"):
             
-            heightZone = st.text_input("Geländehöhe über NN [m]", value=400 )
+            heightZoneInput = st.text_input("Geländehöhe über NN [m]", value=400 )
+            heightZone = correctify_input(heightZoneInput)
+            if heightZone == None:
+                heightZone = 400
+                st.markdown(":red[Bitte gültigen Wert eingeben!]")
+                st.markdown(f"Es wird mit {heightZone}m weitergerechnet.")
 
             if int(heightZone) > 1500:
                 st.markdown(":red[Werte bis maximal 1500m!]")
@@ -435,8 +442,15 @@ with st.container(border=False):
         if trussType == "Parallelträger":
             strebenParallel = st.selectbox("Streben", options=["Fallende Diagonalen", "Steigende Diagonalen"], label_visibility="collapsed",)
 
-        trussWidth = float(st.text_input("Spannweite [m]", value="12"))
-        trussHeight = float(st.text_input("Statische Höhe [m]", value=trussWidth/10))
+        trussWidthInput = st.text_input("Spannweite [m]", value="12")
+        trussWidth = correctify_input(trussWidthInput)
+        if trussWidth == None:
+            trussWidth = print_error_and_set_default(12)
+
+        trussHeightInput = st.text_input("Statische Höhe [m]", value=trussWidth/10)
+        trussHeight = correctify_input(trussHeightInput)
+        if trussHeight == None:
+            trussHeight = print_error_and_set_default(trussWidth/10)
 
         fieldNumber = int(st.number_input("Anzahl an Fächern", step=fieldSettings[trussType][0], value=fieldSettings[trussType][1], min_value=fieldSettings[trussType][2], max_value=20))
         distanceNode = round(trussWidth / fieldNumber, 2)
@@ -791,17 +805,20 @@ def draw_LEF():
     edgesLEF = [
         (0, 1),
         (1, 2),
-        (2, 3)
+        (2, 3),
+        (4, 5)
     ]
 
     nodesLEF = [
         [minNodeLEF, minNodeLEFy + 2.2],
         [minNodeLEF, minNodeLEFy + 4.5],
-        [minNodeLEF + 3, minNodeLEFy + 3],
-        [minNodeLEF + 3, minNodeLEFy + 0.3]
+        [minNodeLEF + 2.75, minNodeLEFy + 3],
+        [minNodeLEF + 2.75, minNodeLEFy + 0.3],
+        [minNodeLEF, minNodeLEFy + 4.1],
+        [minNodeLEF + 2.75, minNodeLEFy + 2.6]
     ]
 
-    nodesForce = [
+    nodesForceField = [
         [
             [nodesLEF[1][0], nodesLEF[1][1] + 0],
             [nodesLEF[1][0] + trussDistance, nodesLEF[1][1] + 0],
@@ -822,33 +839,44 @@ def draw_LEF():
         ]        
     ]
     
-    LEF_graph0 = plt.Polygon(nodesForce[0], closed = True, edgecolor=None, facecolor="lightblue", alpha=0.3)
-    LEF_graph1 = plt.Polygon(nodesForce[1], closed = True, edgecolor="lightblue", facecolor="lightblue", alpha=0.5)
-    LEF_graph2 = plt.Polygon(nodesForce[2], closed = True, edgecolor=None, facecolor="lightblue", alpha=0.3)
+    LEF_graph0 = plt.Polygon(nodesForceField[0], closed = True, edgecolor=None, facecolor="lightblue", alpha=0.3)
+    LEF_graph1 = plt.Polygon(nodesForceField[1], closed = True, edgecolor="lightblue", facecolor="lightblue", alpha=0.5)
+    LEF_graph2 = plt.Polygon(nodesForceField[2], closed = True, edgecolor=None, facecolor="lightblue", alpha=0.3)
 
 
 
     #st.write(LEF_graph)
-    #st.write(nodesForce[0])
-    #LEF_graph = plt.Polygon(nodesForce, closed = True, edgecolor=None, facecolor="lightblue", alpha=0.5)
+    #st.write(nodesForceField[0])
+    #LEF_graph = plt.Polygon(nodesForceField, closed = True, edgecolor=None, facecolor="lightblue", alpha=0.5)
 
         # Create a figure
     fig, ax = plt.subplots()
 
     #with col1:
-        #lasten_stack(nodesForce[1], 1, "test", ax)
+        #lasten_stack(nodesForceField[1], 1, "test", ax)
 
     truss = 0
     while truss < 3:
+        edgeNr = 0
         for edge in edgesLEF:
             #st.text(f"Current Edge: {edge}")
             start_node = [nodesLEF[edge[0]][0] + truss * trussDistance, nodesLEF[edge[0]][1]]
             #st.text(f"Start Node: {edge}")
             end_node = [nodesLEF[edge[1]][0] + truss * trussDistance, nodesLEF[edge[1]][1]]
             #st.text(f"End Node: {edge}")
-            ax.plot([start_node[0], end_node[0]], [start_node[1], end_node[1]], 'r-', linewidth=2)        
+
+            # Oberste Linie dicker zeichnen um Träger zu visualisieren
+            if edgeNr in [1, 3]:
+                ax.plot([start_node[0], end_node[0]], [start_node[1], end_node[1]], 'r-', linewidth=2)
+            else:
+                ax.plot([start_node[0], end_node[0]], [start_node[1], end_node[1]], 'r-', linewidth=2)
+            edgeNr += 1
+
+        nodeNr = 0
         for node in nodesLEF:
-            ax.plot(node[0] + truss * trussDistance, node[1], 'ko', markersize=5)
+            if nodeNr not in [1, 2]:    # dont draw the upper 2 nodes
+                ax.plot(node[0] + truss * trussDistance, node[1], 'ko', markersize=5)
+            nodeNr += 1
         truss += 1
 
 
@@ -887,7 +915,7 @@ def draw_LEF():
             turn = 0
             annotateNodes = []
 
-            for nodes in lasten_stack(nodesForce[1], st.session_state.completeRoofAdditives[name], debugOutput=True):
+            for nodes in lasten_stack(nodesForceField[1], st.session_state.completeRoofAdditives[name], debugOutput=True):
                 #if debug == True:
                     #st.text(name)
                     #st.text(f"{nodes[0]} und {nodes[1]}")
@@ -896,7 +924,7 @@ def draw_LEF():
                 annotateNodes.append(nodes)
                 turn += 1
 
-            #nodesStack = lasten_stack(nodesForce[1], st.session_state.roofAdditives[name], name, ax)
+            #nodesStack = lasten_stack(nodesForceField[1], st.session_state.roofAdditives[name], name, ax)
             if debug == True:
                 st.text(f"{annotateNodes}")
                 st.text(f"{annotateNodes[0][0]}, {annotateNodes[2][1]}")
@@ -939,6 +967,7 @@ def draw_LEF():
     #for patch in stackPatches:
         #ax.add_patch(patch)
 
+    # nicht mehr genutzte Anzeige für Last
     if lastAnzeige == "Einfach":
         ax.annotate(f"q = g + w + s\nq = {float(roofForce):.2f} kN/m² + {float(windForce):.2f} kN/m² + {float(snowForce):.2f} kN/m²\n\nq = {float(qTotal):.2f} kN/m²", ((2 * trussDistance + 2 * minNodeLEF + 3)/2, 2 * 4 + 2 * minNodeLEF- minNodeLEF), xytext=(0, 0), textcoords='offset points', ha='center', va='center', fontsize=8, annotation_clip=False)
 
