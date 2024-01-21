@@ -1563,9 +1563,11 @@ def create_bauteilliste():
         })
 
     with bauteil_col_2:
+        #Werte zusammenrechnen, die demselben "Material" angehören
         total_volumes = df.groupby("Material")["Volumen"].sum()
         total_weight = df.groupby("Material")["Gewicht"].sum()
 
+        #Dataframes zusammenführen
         combined_df = pd.concat([total_volumes, total_weight], axis=1)
 
         st.dataframe(combined_df, use_container_width=True, column_config={
@@ -1577,6 +1579,7 @@ def create_bauteilliste():
             )
         })
         st.markdown(f"Gesamtgewicht: **{((df['Gewicht'].sum())/1000):.2f} t**.")
+        st.markdown(f"Zur Überprüfung wird empfohlen, eine Eigene Last von mindestens **{((df['Gewicht'].sum()/100)/(trussDistance*trussWidth)):.2f} kN/m²** auf das System aufzulegen.")
 
     nodesNr = number_of_nodes(trussType)
     st.markdown(f"Es werden **{nodesNr} Knoten** konstruiert.")
