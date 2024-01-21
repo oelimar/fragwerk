@@ -97,7 +97,7 @@ roofColors = {
 }
 
 roofAdditives = {
-    "Intensive Dachbegrünung" : 12.8,
+    "Intensive Dachbegrünung" : 2.8,
     "Extensive Dachbegrünung" : 1.5,
     "Photovoltaik" : 0.15
 }
@@ -126,6 +126,12 @@ if "loaded_json" not in st.session_state:
     st.session_state.loaded_json = load_json_file(defaultPathGithub, defaultPathLocal)
 
 materialSelect = st.session_state.loaded_json
+
+#Tabelle der Dichten für Gewichtsberechnung. "Material" : [Dichte in kg/m³]
+materialDensity = {
+    "Holz" : 500,
+    "Stahl" : 7850
+}
 
 
 def draw_test_truss(num_nodes, force_range):
@@ -312,9 +318,10 @@ fieldSettings = {
 # Einstellung der Breiten für das gesamte Layout
 columnsParameters = [0.45, 0.55]
 
-st.subheader("Lasteinzugsfeld", divider="red")
-with st.container(border=False):
-    
+
+with st.container(border=True):
+    st.subheader("Lasteinzugsfeld", divider="red")
+
     col1, col2 = st.columns(columnsParameters, gap="large")
 
 
@@ -367,9 +374,10 @@ with st.container(border=False):
                 
                 
             #roofType = st.selectbox("Dachaufbau [kN/m²]", placeholder="Wähle einen Dachaufbau", index=1, options=roofOptions.keys())   #old save
-            roofType = st.selectbox("Dachaufbau [kN/m²]", placeholder="Wähle einen Dachaufbau", index=1, options=roofOptions2)
+            roofType = st.selectbox("Dachaufbau", placeholder="Wähle einen Dachaufbau", index=1, options=roofOptions2, label_visibility="collapsed")
             st.image("https://www.ing-büro-junge.de/assets/images/Belastungen-Dachschichtenaufbau-2.jpg", use_column_width=True)
 
+            # initialisiere Variablen
             roofLayerSum = 0
             flat_data = []
 
@@ -394,9 +402,11 @@ with st.container(border=False):
                 # erstelle bearbeitbaren DataFrame als Widget
                 edited_df = st.data_editor(df, hide_index=True, num_rows="fixed", use_container_width=True, disabled=["Lage"])
             else:
+                # erstelle statischen DataFrame für bessere Darstellung
                 st.dataframe(df, hide_index=True, use_container_width=True)
                 edited_df = df
-            # Aufsummieren aller Dachschichten
+
+            # Aufsummieren aller Werte der Spalte "Last [kN/m²]"
             roofLayerSum = abs(edited_df["Last [kN/m²]"]).sum()     # abs() damit Negative eingaben trotzdem richtig addiert werden
             # Auf 2 Nachkommastellen runden
             roofLayerSum = round(roofLayerSum, 2)
@@ -506,9 +516,9 @@ with st.container(border=False):
     #with col2:
         #st.text("GRAPH LEF")
 
-st.subheader("Fachwerk", divider="red")
-with st.container(border=False):
-    
+
+with st.container(border=True):
+    st.subheader("Fachwerk", divider="red")
     col3, col4 = st.columns(columnsParameters, gap="large")
     
     with col3:
@@ -533,44 +543,129 @@ with st.container(border=False):
         distanceNode = round(trussWidth / fieldNumber, 2)
 
 
-st.subheader("Querschnitt", divider="red")
-with st.container(border=False):
+
+with st.container(border=True):
+    st.subheader("Querschnitte", divider="red")
+    st.write("")
     
-    col5, col6 = st.columns(columnsParameters, gap="large")
+    struts_all_combined = {}
 
-    with col5:
+    querschnittContainer = st.container(border=False)
+    obergurtColumn, strebenColumn, untergurtColumn = st.columns([1, 1, 1], gap="medium")
+    
+    with querschnittContainer:
+        ALL_col_1, ALL_col_2 = st.columns(columnsParameters, gap="large")
+        allOrEach = st.toggle("Individuelle Eingabe")
         
-        strutToCheck = st.selectbox("Dimensionierung durchführen an", ["Obergurt", "Streben", "Untergurt"], index=0)
-        
-        col5_1, col5_2 = st.columns([0.5, 0.5], gap="small")
-        #st.text("Eingabe Querschnitt")
+        if allOrEach == False:
+            with ALL_col_1:
+                ALL_material = st.selectbox("Material", placeholder="Wähle ein Material", options=materialSelect.keys(), key="ALL_material")
+            with ALL_col_2:
+                ALL_profile = st.selectbox("Profil", placeholder="Wähle ein Profil", options=materialSelect[ALL_material].keys(), key="ALL_profile")
+            
+            OG_material = ST_material = UG_material = ALL_material
+            OG_profile = ST_profile = UG_profile = ALL_profile
 
-        # st.text(materialSelect.keys())
-        with col5_1:
-            material = st.selectbox("Material", placeholder="Wähle ein Material", options=materialSelect.keys())
-            # st.text(material)
-        with col5_2:
-            profile = st.selectbox("Profil", placeholder="Wähle ein Profil", options=materialSelect[material].keys())
+        with obergurtColumn:
+            st.subheader("Obergurt")            
+            #strutToCheck = st.selectbox("Dimensionierung durchführen an", ["Obergurt", "Streben", "Untergurt"], index=0)
+                
+            OG_col_5_1, OG_col_5_2 = st.columns([0.4, 0.6], gap="small")
+            #st.text("Eingabe Querschnitt")
 
-        if material in sigmas:
-            sigma_rd = sigmas[material]
-        else:
-            st.markdown(":red[Zu dem Material ist keine Randspannung vorhanden.]")
-            sigmaInput = st.text_input("", placeholder="Randspannung in kN/cm²")
-            if sigmaInput:
-                sigma_rd = sigmaInput
+            # st.text(materialSelect.keys())
+            if allOrEach == True:
+                with OG_col_5_1:
+                    OG_material = st.selectbox("Material", placeholder="Wähle ein Material", options=materialSelect.keys(), key="OG_material")  # key attribut, damit sich selectboxen untereinander unterscheiden
+                    # st.text(material)
+                with OG_col_5_2:
+                    OG_profile = st.selectbox("Profil", placeholder="Wähle ein Profil", options=materialSelect[OG_material].keys(), key="OG_profile")
 
-        
+            if OG_material in sigmas:
+                sigma_rd = sigmas[OG_material]
+            else:
+                st.markdown(":red[Zu dem Material ist keine Randspannung vorhanden.]")
+                sigmaInput = st.text_input("", placeholder="Randspannung in kN/cm²")
+                if sigmaInput:
+                    sigma_rd = sigmaInput
 
-        stress_expander = st.expander("Spannungsnachweis")
-        with stress_expander:
-            stress_einheiten = st.container()
-            stress_latex = st.container()
+                
 
-    with col6:
-        if "finalArea" not in st.session_state:
-            st.session_state.finalArea = 1.3333333337
+            OG_stress_expander = st.expander("Spannungsnachweis")
+            with OG_stress_expander:
+                OG_stress_einheiten = st.container()
+                OG_stress_latex = st.container()
+
+        with strebenColumn:
+            st.subheader("Streben")
+                
+            #strutToCheck = st.selectbox("Dimensionierung durchführen an", ["Obergurt", "Streben", "Untergurt"], index=0)
+                
+            ST_col_5_1, ST_col_5_2 = st.columns([0.4, 0.6], gap="small")
+            #st.text("Eingabe Querschnitt")
+
+            # st.text(materialSelect.keys())
+            if allOrEach == True:
+                with ST_col_5_1:
+                    ST_material = st.selectbox("Material", placeholder="Wähle ein Material", options=materialSelect.keys(), key="ST_material")
+                    # st.text(material)
+                with ST_col_5_2:
+                    ST_profile = st.selectbox("Profil", placeholder="Wähle ein Profil", options=materialSelect[ST_material].keys(), key="ST_profile")
+
+            if ST_material in sigmas:
+                ST_sigma_rd = sigmas[ST_material]
+            else:
+                st.markdown(":red[Zu dem Material ist keine Randspannung vorhanden.]")
+                ST_sigmaInput = st.text_input("", placeholder="Randspannung in kN/cm²")
+                if sigmaInput:
+                    ST_sigma_rd = ST_sigmaInput
+
+                
+
+            ST_stress_expander = st.expander("Spannungsnachweis")
+            with ST_stress_expander:
+                ST_stress_einheiten = st.container()
+                ST_stress_latex = st.container()
+
+        with untergurtColumn:
+            st.subheader("Untergurt")
+                
+            #strutToCheck = st.selectbox("Dimensionierung durchführen an", ["Obergurt", "Streben", "Untergurt"], index=0)
+                
+            UG_col_5_1, UG_col_5_2 = st.columns([0.4, 0.6], gap="small")
+            #st.text("Eingabe Querschnitt")
+
+            # st.text(materialSelect.keys())
+            if allOrEach == True:
+                with UG_col_5_1:
+                    UG_material = st.selectbox("Material", placeholder="Wähle ein Material", options=materialSelect.keys(), key="UG_material")
+                    # st.text(material)
+                with UG_col_5_2:
+                    UG_profile = st.selectbox("Profil", placeholder="Wähle ein Profil", options=materialSelect[UG_material].keys(), key="UG_profile")
+
+            if UG_material in sigmas:
+                UG_sigma_rd = sigmas[UG_material]
+            else:
+                st.markdown(":red[Zu dem Material ist keine Randspannung vorhanden.]")
+                UG_sigmaInput = st.text_input("", placeholder="Randspannung in kN/cm²")
+                if sigmaInput:
+                    UG_sigma_rd = UG_sigmaInput
+
+                
+
+            UG_stress_expander = st.expander("Spannungsnachweis")
+            with UG_stress_expander:
+                UG_stress_einheiten = st.container()
+                UG_stress_latex = st.container()
+    
+    kraefteContainer = st.container(border=True)
+    with kraefteContainer:
         col6_1, col6_2, col6_3 = st.columns([0.3, 0.3, 0.3], gap="medium")
+
+    bauteilContainer = st.container(border=False)
+    with bauteilContainer:
+        bauteilExpander = st.expander("Bauteilliste", expanded=True)
+
 
 def draw_q_over_truss(minNodeX, minNodeY, ax):
     qNodes = [
@@ -1069,42 +1164,98 @@ def draw_LEF():
         st.text(f"zusätzliche Lasten: {roofAdded}")
         st.text(f"Lasten: {st.session_state.roofAdditives}")
 
-def analyze_struts(strutObergurt, strutDiagonal, strutUntergurt, strutElse):
-    strutAll = [strutObergurt, strutDiagonal, strutUntergurt]
-    for strut in strutElse:
-        strutAll.append(strut)
+def analyze_struts(strutObergurt, strutDiagonal, strutUntergurt, strutElse, strutToCheck):    #Analysiere jedes Teil einzeln
+    
+    if strutToCheck == "Obergurt":
+        nr, length, material, profile, chosenProfile = strutObergurt
+            
+        materialVolume = (materialSelect[material][profile][chosenProfile][0] * length * nr)/1000
+        struts_all_combined[strutToCheck] = {
+            "Anzahl" : nr,
+            "Länge" : length,
+            "Material" : f"{material}",
+            "Profil" : f"{chosenProfile} {profile}",
+            "Volumen" : materialVolume,
+            "Gewicht" : materialVolume * materialDensity[material]
+        }
 
-    lengthTotal = 0
-    for nr, length in strutAll:
-        lengthTotal += nr * length
-    return lengthTotal, strutAll
+    if strutToCheck == "Streben":
+        nr, length, material, profile, chosenProfile = strutDiagonal
+            
+        materialVolume = (materialSelect[material][profile][chosenProfile][0] * length * nr)/1000
+        struts_all_combined[strutToCheck] = {
+            "Anzahl" : nr,
+            "Länge" : length,
+            "Material" : f"{material}",
+            "Profil" : f"{chosenProfile} {profile}",
+            "Volumen" : materialVolume,
+            "Gewicht" : materialVolume * materialDensity[material]
+        }
 
-def analyze_truss():
+    if strutToCheck == "Untergurt":
+        nr, length, material, profile, chosenProfile = strutUntergurt
+            
+        materialVolume = (materialSelect[material][profile][chosenProfile][0] * length * nr)/1000
+        struts_all_combined[strutToCheck] = {
+            "Anzahl" : nr,
+            "Länge" : length,
+            "Material" : f"{material}",
+            "Profil" : f"{chosenProfile} {profile}",
+            "Volumen" : materialVolume,
+            "Gewicht" : materialVolume * materialDensity[material]
+        }
+
+    #if strutToCheck not in ["Obergurt", "Streben", "Untergurt"]:
+    if strutToCheck == "Untergurt":
+        counter = 1
+        for strut in strutElse:            
+            nr, length, material, profile, chosenProfile = strut             
+            strutName = f"Weitere Stäbe {counter}"
+            materialVolume = (materialSelect[material][profile][chosenProfile][0] * length * nr)/1000
+            struts_all_combined[strutName] = {
+                "Anzahl" : nr,
+                "Länge" : length,
+                "Material" : None,
+                "Profil" : f"undefiniert",
+                "Volumen" : 0,
+                "Gewicht" : 0
+            }
+            counter += 1
+        
+def number_of_nodes(trussType):
     if trussType == "Strebenfachwerk":
         nodesNr = (fieldNumber * 2) + 3
-        diagonalLength = math.sqrt((pow(distanceNode/2, 2)) + (pow(trussHeight, 2)))
-        strutDiagonal = [(fieldNumber*2), diagonalLength]   # [Anzahl, Länge der Stäbe]
-        strutObergurt = [fieldNumber, distanceNode]
-        strutUntergurt = [fieldNumber - 1, distanceNode]
-        strutElse = [[2, trussHeight], [2, (distanceNode/2)]]
-        lengthTotal, strutAll = analyze_struts(strutObergurt, strutDiagonal, strutUntergurt, strutElse)
-
-        return nodesNr, lengthTotal, strutAll
-    
     if trussType == "Parallelträger":
         nodesNr = (fieldNumber + 1) * 2
+    return nodesNr
+
+def analyze_truss(strutToCheck, material, profile, chosenProfile):   #Analysiere das Gesamte Tragwerk mit allen Einzelteilen
+    #Berechnung für Strebenfachwerk
+    
+    if trussType == "Strebenfachwerk":
+        diagonalLength = math.sqrt((pow(distanceNode/2, 2)) + (pow(trussHeight, 2)))
+        
+        strutDiagonal = [(fieldNumber*2), diagonalLength, material, profile, chosenProfile]   # [Anzahl, Länge der Stäbe, material, profile, chosenProfile]
+        strutObergurt = [fieldNumber, distanceNode, material, profile, chosenProfile]
+        strutUntergurt = [fieldNumber - 1, distanceNode, material, profile, chosenProfile]
+        strutElse = [[2, trussHeight, material, profile, chosenProfile], [2, (distanceNode/2), material, profile, chosenProfile]]
+        analyze_struts(strutObergurt, strutDiagonal, strutUntergurt, strutElse, strutToCheck)
+        return
+    
+    #Berechnung für Parallelträger
+    if trussType == "Parallelträger":
         diagonalLength = math.sqrt((pow(distanceNode, 2)) + (pow(trussHeight, 2)))
 
-        strutObergurt = strutUntergurt = [fieldNumber, distanceNode]
-        strutDiagonal = [fieldNumber, diagonalLength]
-        strutElse = [[fieldNumber + 1, trussHeight]]
-        lengthTotal, strutAll = analyze_struts(strutObergurt, strutDiagonal, strutUntergurt, strutElse)
-
-        return nodesNr, lengthTotal, strutAll
+        strutObergurt = strutUntergurt = [fieldNumber, distanceNode, material, profile, chosenProfile]    # [Anzahl, Länge der Stäbe, material, profile, chosenProfile]
+        strutDiagonal = [fieldNumber, diagonalLength, material, profile, chosenProfile]
+        strutElse = [[fieldNumber + 1, trussHeight, material, profile, chosenProfile]]
+        analyze_struts(strutObergurt, strutDiagonal, strutUntergurt, strutElse, strutToCheck)
+        return
+    
     else:
         return False
 
-def calc_strebewerk():
+def calc_strebewerk(strutToCheck, print_forces=False):
 
     #qTotal = 2.4
 
@@ -1151,15 +1302,16 @@ def calc_strebewerk():
     if strutToCheck == "Untergurt":
         maxForce = maxForceU
 
-    with col6_1:
-        st.write(f"Maximale Druckkraft im Obergurt:" if maxForceO < 0 else f"Maximale Zugkraft im Obergurt:")
-        st.write(f":blue[{abs(maxForceO):.2f} kN]" if maxForceO < 0 else f":red[{abs(maxForceO):.2f} kN]")
-    with col6_2:
-        st.write(f"Maximale Druckkraft in äußerster Strebe:" if maxForceD < 0 else f"Maximale Zugkraft in äußerster Strebe:")
-        st.write(f":blue[{abs(maxForceD):.2f} kN]" if maxForceD < 0 else f":red[{abs(maxForceD):.2f} kN]")
-    with col6_3:
-        st.write(f"Maximale Druckkraft im Untergurt:" if maxForceU < 0 else f"Maximale Zugkraft im Untergurt:")
-        st.write(f":blue[{abs(maxForceU):.2f} kN]" if maxForceU < 0 else f":red[{abs(maxForceU):.2f} kN]")
+    if print_forces != False:
+        with col6_1:
+            st.write(f"Maximale Druckkraft im Obergurt:" if maxForceO < 0 else f"Maximale Zugkraft im Obergurt:")
+            st.write(f":blue[{abs(maxForceO):.2f} kN]" if maxForceO < 0 else f":red[{abs(maxForceO):.2f} kN]")
+        with col6_2:
+            st.write(f"Maximale Druckkraft in äußerster Strebe:" if maxForceD < 0 else f"Maximale Zugkraft in äußerster Strebe:")
+            st.write(f":blue[{abs(maxForceD):.2f} kN]" if maxForceD < 0 else f":red[{abs(maxForceD):.2f} kN]")
+        with col6_3:
+            st.write(f"Maximale Druckkraft im Untergurt:" if maxForceU < 0 else f"Maximale Zugkraft im Untergurt:")
+            st.write(f":blue[{abs(maxForceU):.2f} kN]" if maxForceU < 0 else f":red[{abs(maxForceU):.2f} kN]")
     
 
 
@@ -1174,7 +1326,7 @@ def calc_strebewerk():
 
     return maxForce
 
-def calc_parallel(strebenParallel):
+def calc_parallel(strebenParallel, strutToCheck, print_forces=False):
     
     #qTotal = 2.4
     #st.text(qTotal)
@@ -1190,7 +1342,7 @@ def calc_parallel(strebenParallel):
     
     i = 1
     while i < (fieldNumber / 2):
-        qTemp = (totalLast / fieldNumber, i * distanceNode) # Q-Wert, Distanz zu Drehpunkt
+        qTemp = (totalLast / fieldNumber, i * distanceNode) # Punktlast Wert, Distanz zu Drehpunkt
         qNum.append(qTemp)
         i += 1
     qNum.append((punktLastAussen, i * distanceNode))
@@ -1215,7 +1367,6 @@ def calc_parallel(strebenParallel):
     if strebenParallel != "Fallende Diagonalen":
         maxForceD = -maxForceD    
 
-    global maxForce
 
     if strutToCheck == "Obergurt":
         maxForce = maxForceO
@@ -1224,18 +1375,16 @@ def calc_parallel(strebenParallel):
     if strutToCheck == "Untergurt":
         maxForce = maxForceU
 
-
-    with col6_1:
-        st.write(f"Maximale Druckkraft im Obergurt:" if maxForceO < 0 else f"Maximale Zugkraft im Obergurt:")
-        st.write(f":blue[{abs(maxForceO):.2f} kN]" if maxForceO < 0 else f":red[{abs(maxForceO):.2f} kN]")
-    with col6_2:
-        st.write(f"Maximale Druckkraft in äußerster Strebe:" if maxForceD < 0 else f"Maximale Zugkraft in äußerster Strebe:")
-        st.write(f":blue[{abs(maxForceD):.2f} kN]" if maxForceD < 0 else f":red[{abs(maxForceD):.2f} kN]")
-    with col6_3:
-        st.write(f"Maximale Druckkraft im Untergurt:" if maxForceU < 0 else f"Maximale Zugkraft im Untergurt:")
-        st.write(f":blue[{abs(maxForceU):.2f} kN]" if maxForceU < 0 else f":red[{abs(maxForceU):.2f} kN]")
-
-    #st.text_area("Ergebnis", f"{resultObergurt}\n{resultStrebe}\n{resultUntergurt}")
+    if print_forces != False:
+        with col6_1:
+            st.write(f"Maximale Druckkraft im Obergurt:" if maxForceO < 0 else f"Maximale Zugkraft im Obergurt:")
+            st.write(f":blue[{abs(maxForceO):.2f} kN]" if maxForceO < 0 else f":red[{abs(maxForceO):.2f} kN]")
+        with col6_2:
+            st.write(f"Maximale Druckkraft in äußerster Strebe:" if maxForceD < 0 else f"Maximale Zugkraft in äußerster Strebe:")
+            st.write(f":blue[{abs(maxForceD):.2f} kN]" if maxForceD < 0 else f":red[{abs(maxForceD):.2f} kN]")
+        with col6_3:
+            st.write(f"Maximale Druckkraft im Untergurt:" if maxForceU < 0 else f"Maximale Zugkraft im Untergurt:")
+            st.write(f":blue[{abs(maxForceU):.2f} kN]" if maxForceU < 0 else f":red[{abs(maxForceU):.2f} kN]")
 
     if debug == True:
             st.subheader("debug:")
@@ -1246,23 +1395,25 @@ def calc_parallel(strebenParallel):
             st.text(f"Kraft im mittleren Diagonalstab: {abs(ForceDmiddle):.2f} kN")
             st.text(f"Qs generiert: {len(qNum)}\nmit Werten: {qNum}\ninsgesamt Momente: {float(qProd):.2f}")
             st.text(f"Kraft im äußeren Obergurt: {ForceOaussen} kN")
+    
+    return maxForce
 
-def calc(trussType):
+
+def calc(trussType, strutToCheck, print_forces=False):
     if trussType == "Strebenfachwerk":
-        calc_strebewerk()
+        maxForce = calc_strebewerk(strutToCheck, print_forces)
     if trussType == "Parallelträger":
-        calc_parallel(strebenParallel)
+        maxForce = calc_parallel(strebenParallel, strutToCheck, print_forces)
+    return maxForce
 
 def extract_numerical_part(key):
     # This function extracts the numerical part from a string key
     # Example: "8" -> 8, "12/12" -> 12
     return int(key.split('/')[0]) if '/' in key else int(key)
 
-def stress_verification(): # Spannungsnachweis zur Wahl des ersten Querschnitts
+def stress_verification(material, profile, maxForce, stress_latex): # Spannungsnachweis zur Wahl des ersten Querschnitts
     
-    global maxForce
-    global sigma_rd
-    global chosenProfile
+    #st.text(maxForce)
 
     maxForce_d = abs(maxForce) * 1.4
     
@@ -1277,8 +1428,7 @@ def stress_verification(): # Spannungsnachweis zur Wahl des ersten Querschnitts
 
     
     if debug == True:
-        with col5:
-            st.text(f"benötigte Oberfläche: {areaCalc:.2f}cm²")
+        st.text(f"benötigte Oberfläche: {areaCalc:.2f}cm²")
     
     for profil, values in materialSelect[material][profile].items():
         area = values[0]
@@ -1288,29 +1438,24 @@ def stress_verification(): # Spannungsnachweis zur Wahl des ersten Querschnitts
             if maxForce > 0:
                 st.session_state.finalArea = area
 
-            with col5:
-                with stress_expander:
-                    with stress_latex:
-                        A_min = r"A_{min}"
-                        math_expression = r"A_{min} = \frac{{Nd}}{{\sigma_{Rd}}}"
-                        math_expression2 = f"{A_min} = {areaCalc:.2f} cm²"
-                        st.latex(math_expression)
-                        st.latex(math_expression2)
+
+            with stress_latex:
+                A_min = r"A_{min}"
+                math_expression = r"A_{min} = \frac{{Nd}}{{\sigma_{Rd}}}"
+                math_expression2 = f"{A_min} = {areaCalc:.2f} cm²"
+                st.latex(math_expression)
+                st.latex(math_expression2)
             
             if debug == True:
-                with col5:
-                    st.text(f"Profil: {chosenProfile}")
-                    st.text(f"Profil Oberfläche: {materialSelect[material][profile][chosenProfile][0]}cm²")
-            return chosenProfile
+
+                st.text(f"Profil: {chosenProfile}")
+                st.text(f"Profil Oberfläche: {materialSelect[material][profile][chosenProfile][0]}cm²")
+            return chosenProfile, sigma_rd, areaCalc
     else:
         st.markdown(f'<font color="red">Es gibt keinen passenden {profile} Querschnitt, der den Spannungstest besteht.</font>', unsafe_allow_html=True)
         return False
     
-def check_bend(min_i, A):
-
-    global maxForce
-    global chosenProfile
-    global sigma_rd
+def check_bend(material, min_i, A, maxForce, sigma_rd):
 
     lambdaCalc = (trussWidth/fieldNumber)*100/min_i
 
@@ -1348,7 +1493,11 @@ def check_bend(min_i, A):
             else:
                 return False
 
-def profile_success(chosenProfile):
+def profile_success(material, profile, chosenProfile, maxForce, sigma_rd, stress_latex, stress_einheiten, strutToCheck):
+
+    #Hinzufügen zu strutArray, um daraus Bauteilliste zu gestalten
+    #strutArray.append([])
+
 
     with stress_latex:
         A_gew = r"A_{gew}"
@@ -1358,21 +1507,19 @@ def profile_success(chosenProfile):
         A_min = r"A_{min}"
         st.text(f"σ = {sigma_rd} kN/cm²\nη = {((((abs(maxForce)*1.4)/materialSelect[material][profile][chosenProfile][0]) / sigma_rd) * 100):.2f} %")
         st.text(f"Nd = Nmax * 1.4 \nNd = {(abs(maxForce)*1.4):.2f} kN")
-    
-    with col6:
-        st.title(f'{chosenProfile} {profile}')
-        searchTerm = f"{chosenProfile} {profile} Profil Maße Tabelle"
-        searchTerm_noSpaces = searchTerm.replace(" ", "+")
-                
-        st.markdown(f'<span style="color: green;">Der Querschnitt **{chosenProfile}** in **{material} {profile}** erfüllt die erforderlichen Nachweise!</font>', unsafe_allow_html=True)
-        st.link_button(f"Kennwerte zu {chosenProfile} {profile}", url=f"https://www.google.com/search?q={searchTerm_noSpaces}", use_container_width=True)
 
-def bend_verification():
+    st.title(f'{chosenProfile} {profile}')                
+    st.markdown(f'<span style="color: green;">Der Querschnitt **{chosenProfile}** in **{material} {profile}** erfüllt die erforderlichen Nachweise!</font>', unsafe_allow_html=True)
+        
+    searchTerm = f"{chosenProfile} {profile} Profil Maße Tabelle" # Erstelle Suchquery für Querschnitt
+    searchTerm_noSpaces = searchTerm.replace(" ", "+")  # Ersetze Leerzeichen durch "+"
+    st.link_button(f"Kennwerte zu {chosenProfile} {profile}", url=f"https://www.google.com/search?q={searchTerm_noSpaces}", use_container_width=True)
+
+    analyze_truss(strutToCheck, material, profile, chosenProfile)
+
+def bend_verification(material, profile, chosenProfile, maxForce, sigma_rd, stress_latex, stress_einheiten, strutToCheck):
     # iterativer Knicknachweis
-    global chosenProfile
-    global maxForce
-
-    if maxForce < 0:
+    if maxForce < 0:    # wenn Druckkraft vorliegt, dann Knicknachweis führen
         for profil, values in materialSelect[material][profile].items():
             if extract_numerical_part(profil) >= extract_numerical_part(chosenProfile):
                 stressProfile = chosenProfile
@@ -1380,34 +1527,8 @@ def bend_verification():
                     st.text(f"Teste Profil: {profil}")
                 min_i = values[1]
                 A = values[0]
-                if check_bend(min_i, A) == True:
-                    profile_success(profil)
-                    st.session_state.finalArea = A
-                    
-                    if analyze_truss() != False:
-                        nodesNr, lengthTotal, strutAll = analyze_truss()
-                        volumeTotal = (lengthTotal * materialSelect[material][profile][chosenProfile][0])/1000
-                        analyzeExpander = st.expander("weitere Informationen")
-                        
-                        with analyzeExpander:
-                            #st.subheader(f"Es werden {nodesNr} Knoten konstruiert und {volumeTotal:.2f}m³ {material} benötigt.")
-                            #st.subheader(f"Der Spannungsnachweis benötigt einen {stressProfile} Querschnitt.")
-
-                            nr = 0
-                            for strut in strutAll:
-                                if nr == 0:
-                                    st.subheader("Obergurt")
-                                elif nr == 1:
-                                    st.subheader("Streben")
-                                elif nr == 2:
-                                    st.subheader("Untergurt")
-                                elif nr == 3:
-                                    st.subheader("Weitere")
-                                st.text(f"{strut[0]}x {strut[1]:.2f}m")
-                                nr += 1
-
-
-                        
+                if check_bend(material, min_i, A, maxForce, sigma_rd) == True:
+                    profile_success(material, profile, profil, maxForce, sigma_rd, stress_latex, stress_einheiten, strutToCheck)
 
                     return chosenProfile
             #else:
@@ -1416,13 +1537,52 @@ def bend_verification():
             st.markdown(f'<font color="red">Es gibt keinen passenden {profile} Querschnitt, der den Knicktest besteht.</font>', unsafe_allow_html=True)
             #st.markdown(":red[Es gibt keinen passenden Querschnitt für]")
 
-    else:
-        profile_success(chosenProfile)
+    else:   # wenn keine Druckkraft vorliegt (=Zugkraft) dann ergibt der Spannungsnachweis den Querschnitt
+        with st.expander("Knicknachweis"):
+            st.markdown(f":green[Bei Zugkräften ist kein Knicknachweis nötig!]")
+        profile_success(material, profile, chosenProfile, maxForce, sigma_rd, stress_latex, stress_einheiten, strutToCheck)
 
 
+def create_bauteilliste():
+    
+    bauteil_col_1, bauteil_col_2 = st.columns([0.7, 0.3], gap="medium")
+
+    with bauteil_col_1:
+        flat_data = [{"Position": element, **attributes} for element, attributes in struts_all_combined.items()]
+        df = pd.DataFrame(flat_data)
+        st.dataframe(df, column_order=("Position", "Anzahl", "Länge", "Profil", "Volumen"), use_container_width=True, hide_index=True, column_config={
+            "Anzahl": st.column_config.NumberColumn(
+                format="x %d"
+            ),
+            "Länge": st.column_config.NumberColumn(
+                format="%.2f m"
+            ),
+            "Volumen": st.column_config.NumberColumn(
+                format="%.2f m³"
+            )
+        })
+
+    with bauteil_col_2:
+        total_volumes = df.groupby("Material")["Volumen"].sum()
+        total_weight = df.groupby("Material")["Gewicht"].sum()
+
+        combined_df = pd.concat([total_volumes, total_weight], axis=1)
+
+        st.dataframe(combined_df, use_container_width=True, column_config={
+            "Volumen" : st.column_config.NumberColumn(
+                format="%.2f m³"
+            ),
+            "Gewicht" : st.column_config.NumberColumn(
+                format="%.2f kg"
+            )
+        })
+        st.markdown(f"Gesamtgewicht: **{((df['Gewicht'].sum())/1000):.2f} t**.")
+
+    nodesNr = number_of_nodes(trussType)
+    st.markdown(f"Es werden **{nodesNr} Knoten** konstruiert.")
 
 
-
+                    
 
 def draw_truss2():
     minNodeX = trussWidth / 5
@@ -1562,14 +1722,50 @@ def main():
             draw_truss_strebe()
         if trussType == "Parallelträger":
             draw_truss_parallel(strebenParallel)
-    with col6:
+
+
+
+    with obergurtColumn:
+        strutToCheck = "Obergurt"
         #draw_truss3()
-        calc(trussType)
+        # maxForce als maximale Last, die sich aus dem calc() ergibt
+        OG_maxForce = calc(trussType, strutToCheck)
+    with obergurtColumn:
+        try:
+            OG_chosenProfile, OG_sigma_rd, areaCalc = stress_verification(OG_material, OG_profile, OG_maxForce, OG_stress_latex)
+            bend_verification(OG_material, OG_profile, OG_chosenProfile, OG_maxForce, OG_sigma_rd, OG_stress_latex, OG_stress_einheiten, strutToCheck)
+        except TypeError as e:
+            st.text("")
+        #if stress_verification(OG_material, OG_profile, OG_maxForce) != False:
+            #bend_verification()
 
-    with col5:
-        if stress_verification() != False:
-            bend_verification()
+    with strebenColumn:
+        strutToCheck = "Streben"
+        #draw_truss3()
+        # maxForce als maximale Last, die sich aus dem calc() ergibt
+        ST_maxForce = calc(trussType, strutToCheck)
+    with strebenColumn:
+        try:
+            ST_chosenProfile, ST_sigma_rd, areaCalc = stress_verification(ST_material, ST_profile, ST_maxForce, ST_stress_latex)
+            bend_verification(ST_material, ST_profile, ST_chosenProfile, ST_maxForce, ST_sigma_rd, ST_stress_latex, ST_stress_einheiten, strutToCheck)
+        except TypeError as e:
+            st.text("")
 
+    with untergurtColumn:
+        strutToCheck = "Untergurt"
+        #draw_truss3()
+        # maxForce als maximale Last, die sich aus dem calc() ergibt
+        UG_maxForce = calc(trussType, strutToCheck, print_forces=True)
+    with untergurtColumn:
+        try:
+            UG_chosenProfile, UG_sigma_rd, areaCalc = stress_verification(UG_material, UG_profile, UG_maxForce, UG_stress_latex)
+            bend_verification(UG_material, UG_profile, UG_chosenProfile, UG_maxForce, UG_sigma_rd, UG_stress_latex, UG_stress_einheiten, strutToCheck)
+        except TypeError as e:
+            st.text("")
+
+
+    with bauteilExpander:
+        create_bauteilliste()
 
 if __name__ == "__main__":
     main()
