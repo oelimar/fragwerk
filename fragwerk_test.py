@@ -1,14 +1,8 @@
 import streamlit as st
 import matplotlib.pyplot as plt
-import numpy as np
 import pandas as pd
-from itertools import zip_longest
 import math
 import json # für material import
-from matplotlib.collections import LineCollection
-from matplotlib.colors import Normalize # normalizing für die colormaps
-from matplotlib.cm import ScalarMappable # color maps
-import random # für random Nummer
 import secrets # für random Hex Farbe
 import copy # um st.session_state werte zu kopieren ohne diese weiter zu referenzieren
 import requests # um material.json auf github abzufragen
@@ -32,11 +26,8 @@ with col0_1:
     st.title("")
 
 with col0_2:
-    Tester = st.toggle("Tester",)
+    debug = False
     debug = st.toggle("Debug Mode")
-    #st.text_input("test", label_visibility="collapsed", value="test", disabled=True, type="password")
-
-#st.markdown(f":red[Das Programm befindet sich noch im Aufbau. Verzeihen Sie eventuelle Fehler oder Mängel.]")
 
 trussOptions = [
     "Strebenfachwerk",
@@ -132,60 +123,6 @@ materialDensity = {
     "Holz" : 500,
     "Stahl" : 7850
 }
-
-
-def draw_test_truss(num_nodes, force_range):
-    # Generate random forces for each strut
-    forces = [random.uniform(force_range[0], force_range[1]) for _ in range(num_nodes - 1)]
-    st.text(forces)
-    length = 1
-
-    # Generate node positions
-    nodes = np.linspace(0, 1, num_nodes)
-
-    nodes = []
-    
-    i = 0
-    while i <= num_nodes:
-        if i % 2 != 0:
-            nodes.append((i*(length/num_nodes), 0.1))
-        if i % 2 == 0:
-            nodes.append((i*(length/num_nodes), 0))
-        i += 1
-
-    st.text(nodes)
-    st.text(range(num_nodes - 1))
-    # Create Matplotlib figure
-    fig, ax = plt.subplots()
-    ax.set_aspect('equal', adjustable='datalim')  # Equal aspect ratio for a clearer visualization
-
-    # Plot the truss with individual line widths representing the force
-    for i in range(num_nodes - 1):
-        if forces[i] < 0:
-            color = "red"
-        elif forces[i] > 0:
-            color = "blue"
-        else:
-            color = "black"
-        width = 0.1 + 2 * (forces[i] - force_range[0]) / (force_range[1] - force_range[0])  # Scale line width based on force
-        if int(forces[i]) == 0:
-            width = 0.1
-        ax.plot([nodes[i][0], nodes[i + 1][0]], [nodes[i][1], nodes[i + 1][1]], color=color, linewidth=width)
-        for node in nodes:
-            ax.plot(node[0], node[1], color="black", marker='o', markersize=3)
-
-    ax.set_xlim(0, 1)
-    ax.set_ylim(-1, 1)
-    ax.axis('off')  # Turn off axis labels
-
-    st.pyplot(fig)
-
-
-if Tester == True:
-    num_nodes = st.slider("Number of Nodes:", min_value=2, max_value=20, value=10)
-    force_range = st.slider("Force Range:", min_value=-10.0, max_value=10.0, value=(2.0, 8.0))
-    draw_test_truss(num_nodes, force_range)
-
 
 # Funktion um die Eingabe von Werten mit Kommas zu ermöglichen
 def correctify_input(value):
@@ -344,10 +281,7 @@ with st.container(border=True):
         #st.text(st.session_state.currentSelection.keys())
         #st.text(st.session_state.roofAdditives.keys())
 
-        if st.session_state.currentSelection == None:
-            roofAdded_default = []
-        else:
-            roofAdded_default = st.session_state.currentSelection.keys()
+        
         #st.text(roofAdded_default)
 
         #st.markdown("<div style='font-size: 13px; font-weight: 100;'>Anzeige Lasten</div>", unsafe_allow_html=True)
@@ -414,14 +348,14 @@ with st.container(border=True):
 
         
 
+        roofAddedContainer = st.container()
         
-        
-        roofAdded = st.multiselect("Zusätzliche Dachlasten", st.session_state.roofAdditives.keys(), default=roofAdded_default, placeholder="Wähle hier zusätzliche Lasten", label_visibility="collapsed")
+        #roofAdded = st.multiselect("Zusätzliche Dachlasten", st.session_state.roofAdditives.keys(), default=roofAdded_default, placeholder="Wähle hier zusätzliche Lasten", label_visibility="collapsed")
 
-        if roofAdded != []:
-            st.session_state.currentSelection = {}
-            for name in roofAdded:
-                st.session_state.currentSelection[name] = copy.deepcopy(st.session_state.roofAdditives[name])
+        #if roofAdded != []:
+            #st.session_state.currentSelection = {}
+            #for name in roofAdded:
+                #st.session_state.currentSelection[name] = copy.deepcopy(st.session_state.roofAdditives[name])
 
 
         addButton = st.button("Eigene Last hinzufügen", type="primary", use_container_width=True, disabled=False)
@@ -448,20 +382,41 @@ with st.container(border=True):
                     customAdditive = "Eigene Last " + str(st.session_state.additiveCounter) # Falls keine Bezeichnung eingetragen wird, wird automatisch immer ein neuer Name generiert.
                     st.session_state.additiveCounter += 1
 
-                float_value = float(customValue)
-                st.session_state.roofAdditives[customAdditive] = float_value
+                st.session_state.roofAdditives[customAdditive] = float(customValue)
                 if customColor == "#FFFFFF":
                     customColor = "#" + secrets.token_hex(3) # generiere random HEX Farbcode "#123456"
                 st.session_state.roofColors[customAdditive] = customColor
 
                 if st.session_state.currentSelection == None:
                     st.session_state.currentSelection = {}
-                st.session_state.currentSelection[customAdditive] = float_value
-                st.rerun()
+                st.session_state.currentSelection[customAdditive] = float(customValue)
+                #st.experimental_rerun()
                     
                 # Warnung, falls Wert bei Knopfdruck keinen sinnvollen Wert bilden kann
             except (ValueError, TypeError):     #ValueError, falls nur ein string übrigbleibt; TypeError falls versucht wird float(None) zu bilden, wenn correctify_input() None ausgibt
                 st.markdown(":red[Last unzulässig. Bitte Wert in [kN/m²] angeben.]")
+
+        if st.session_state.currentSelection == None:
+            roofAdded_default = []
+        else:
+            roofAdded_default = list(st.session_state.currentSelection.keys())
+
+        with roofAddedContainer:
+            roofAdded = st.multiselect("Zusätzliche Dachlasten", st.session_state.roofAdditives.keys(), default=roofAdded_default, placeholder="Wähle hier zusätzliche Lasten", label_visibility="collapsed")
+
+        #if roofAdded != roofAdded_default:
+        #if roofAdded != []:
+        if roofAdded != roofAdded_default:
+            st.session_state.currentSelection = {}
+            for name in roofAdded:
+                st.session_state.currentSelection[name] = copy.deepcopy(st.session_state.roofAdditives[name])
+                roofAdded_default = list(st.session_state.currentSelection.keys())
+        #else:
+            #st.session_state.currentSelection = None
+        if debug == True:
+            st.text(f"roofAdded: {roofAdded}")
+            st.text(f"s_s.currentSelection: {st.session_state.currentSelection}")
+            st.text(f"s_s.roofAdditives: {st.session_state.roofAdditives}")
 
         with st.expander("veränderliche Lasten"):
             
@@ -473,9 +428,10 @@ with st.container(border=True):
                 st.markdown(f"Es wird mit {heightZone}m weitergerechnet.")
 
             if int(heightZone) > 1500:
+                heightZone = 1500
                 st.markdown(":red[Werte bis maximal 1500m!]")
                 st.markdown(f"Es werden anstelle von {heightZone}m die Werte für 1500m angezeigt.")
-                heightZone = 1500
+                
 
             for height in snow_mapping.keys():
                 if int(height) >= int(heightZone):
@@ -501,8 +457,8 @@ with st.container(border=True):
                 snowZone = st.number_input("Schneelastzone", help="Wähle Anhand der Lage auf der Karte eine der 3 Schneelastzonen", step=1, value=snowMinValue, min_value=snowMinValue, max_value=3)
                 st.image("https://encrypted-tbn0.gstatic.com/images?q=tbn:ANd9GcQ4A-8ZgmAVEg-fwtBN1ndVuCaCfbG3p5VOpwya0ZXY7NljUrRNvYoH4Hng9DVW0TriyDM&usqp=CAU", caption="Schneelastzonen in DE")
 
-        snowForce = snow_mapping_2[snowZone] * 0.8 # berechnung wie in Tabellenbuch
-        snowForce = snow_mapping[snowHeight][snowZone - 1] * 0.8
+        #snowForce = snow_mapping_2[snowZone] * 0.8 
+        snowForce = snow_mapping[snowHeight][snowZone - 1] * 0.8 # berechnung wie in Tabellenbuch
 
         windForce = wind_mapping_2[windZone] * 0.2
         roofForce = roofLayerSum
@@ -548,6 +504,7 @@ with st.container(border=True):
     st.subheader("Querschnitte", divider="red")
     st.write("")
     
+    #Initialilisier Bauteilobjekt, in dem später alle Bauteile abgespeichert werden
     struts_all_combined = {}
 
     querschnittContainer = st.container(border=False)
@@ -664,7 +621,7 @@ with st.container(border=True):
 
     bauteilContainer = st.container(border=False)
     with bauteilContainer:
-        bauteilExpander = st.expander("Bauteilliste", expanded=True)
+        bauteilExpander = st.expander(f"Bauteilliste und weitere Informationen", expanded=False)
 
 
 def draw_q_over_truss(minNodeX, minNodeY, ax):
@@ -1168,44 +1125,22 @@ def analyze_struts(strutObergurt, strutDiagonal, strutUntergurt, strutElse, stru
     
     if strutToCheck == "Obergurt":
         nr, length, material, profile, chosenProfile = strutObergurt
-            
-        materialVolume = (materialSelect[material][profile][chosenProfile][0] * length * nr)/1000
-        struts_all_combined[strutToCheck] = {
-            "Anzahl" : nr,
-            "Länge" : length,
-            "Material" : f"{material}",
-            "Profil" : f"{chosenProfile} {profile}",
-            "Volumen" : materialVolume,
-            "Gewicht" : materialVolume * materialDensity[material]
-        }
-
     if strutToCheck == "Streben":
         nr, length, material, profile, chosenProfile = strutDiagonal
-            
-        materialVolume = (materialSelect[material][profile][chosenProfile][0] * length * nr)/1000
-        struts_all_combined[strutToCheck] = {
-            "Anzahl" : nr,
-            "Länge" : length,
-            "Material" : f"{material}",
-            "Profil" : f"{chosenProfile} {profile}",
-            "Volumen" : materialVolume,
-            "Gewicht" : materialVolume * materialDensity[material]
-        }
-
     if strutToCheck == "Untergurt":
         nr, length, material, profile, chosenProfile = strutUntergurt
-            
-        materialVolume = (materialSelect[material][profile][chosenProfile][0] * length * nr)/1000
-        struts_all_combined[strutToCheck] = {
-            "Anzahl" : nr,
-            "Länge" : length,
-            "Material" : f"{material}",
-            "Profil" : f"{chosenProfile} {profile}",
-            "Volumen" : materialVolume,
-            "Gewicht" : materialVolume * materialDensity[material]
-        }
 
-    #if strutToCheck not in ["Obergurt", "Streben", "Untergurt"]:
+    materialVolume = (materialSelect[material][profile][chosenProfile][0] * length * nr)/1000
+    struts_all_combined[strutToCheck] = {
+        "Anzahl" : nr,
+        "Länge" : length,
+        "Länge gesamt" : length * nr,
+        "Material" : f"{material}",
+        "Profil" : f"{chosenProfile} {profile}",
+        "Volumen" : materialVolume,
+        "Gewicht" : materialVolume * materialDensity[material]
+    }
+
     if strutToCheck == "Untergurt":
         counter = 1
         for strut in strutElse:            
@@ -1215,6 +1150,7 @@ def analyze_struts(strutObergurt, strutDiagonal, strutUntergurt, strutElse, stru
             struts_all_combined[strutName] = {
                 "Anzahl" : nr,
                 "Länge" : length,
+                "Länge gesamt" : length * nr,
                 "Material" : None,
                 "Profil" : f"undefiniert",
                 "Volumen" : 0,
@@ -1292,8 +1228,6 @@ def calc_strebewerk(strutToCheck, print_forces=False):
 
     ForceOaussen = ((punktLastAussen * (trussWidth/(fieldNumber*2))) - (forceAuflager * (trussWidth/(fieldNumber*2)))) / trussHeight
     maxForceD = (forceAuflager - punktLastAussen) / math.sin(diagonalAlpha)
-
-    global maxForce
 
     if strutToCheck == "Obergurt":
         maxForce = maxForceO
@@ -1398,7 +1332,6 @@ def calc_parallel(strebenParallel, strutToCheck, print_forces=False):
     
     return maxForce
 
-
 def calc(trussType, strutToCheck, print_forces=False):
     if trussType == "Strebenfachwerk":
         maxForce = calc_strebewerk(strutToCheck, print_forces)
@@ -1495,10 +1428,6 @@ def check_bend(material, min_i, A, maxForce, sigma_rd):
 
 def profile_success(material, profile, chosenProfile, maxForce, sigma_rd, stress_latex, stress_einheiten, strutToCheck):
 
-    #Hinzufügen zu strutArray, um daraus Bauteilliste zu gestalten
-    #strutArray.append([])
-
-
     with stress_latex:
         A_gew = r"A_{gew}"
         math_expression = f"{A_gew}({chosenProfile}) = {materialSelect[material][profile][chosenProfile][0]:.2f} cm²"
@@ -1515,6 +1444,7 @@ def profile_success(material, profile, chosenProfile, maxForce, sigma_rd, stress
     searchTerm_noSpaces = searchTerm.replace(" ", "+")  # Ersetze Leerzeichen durch "+"
     st.link_button(f"Kennwerte zu {chosenProfile} {profile}", url=f"https://www.google.com/search?q={searchTerm_noSpaces}", use_container_width=True)
 
+    # Analyse für Bauteilliste
     analyze_truss(strutToCheck, material, profile, chosenProfile)
 
 def bend_verification(material, profile, chosenProfile, maxForce, sigma_rd, stress_latex, stress_einheiten, strutToCheck):
@@ -1539,9 +1469,8 @@ def bend_verification(material, profile, chosenProfile, maxForce, sigma_rd, stre
 
     else:   # wenn keine Druckkraft vorliegt (=Zugkraft) dann ergibt der Spannungsnachweis den Querschnitt
         with st.expander("Knicknachweis"):
-            st.markdown(f":green[Bei Zugkräften ist kein Knicknachweis nötig!]")
+            st.markdown(f":black[**Bei Zugkräften erfolgt kein Knicknachweis.**]")
         profile_success(material, profile, chosenProfile, maxForce, sigma_rd, stress_latex, stress_einheiten, strutToCheck)
-
 
 def create_bauteilliste():
     
@@ -1550,167 +1479,50 @@ def create_bauteilliste():
     with bauteil_col_1:
         flat_data = [{"Position": element, **attributes} for element, attributes in struts_all_combined.items()]
         df = pd.DataFrame(flat_data)
-        st.dataframe(df, column_order=("Position", "Anzahl", "Länge", "Profil", "Volumen"), use_container_width=True, hide_index=True, column_config={
-            "Anzahl": st.column_config.NumberColumn(
-                format="x %d"
-            ),
-            "Länge": st.column_config.NumberColumn(
-                format="%.2f m"
-            ),
-            "Volumen": st.column_config.NumberColumn(
-                format="%.2f m³"
-            )
-        })
+        if len(df) > 0:
+            st.dataframe(df, column_order=("Position", "Anzahl", "Länge", "Länge gesamt", "Profil", "Volumen"), use_container_width=True, hide_index=True, column_config={
+                "Anzahl": st.column_config.NumberColumn(
+                    format="%d x",
+                    width="small"
+                ),
+                "Länge": st.column_config.NumberColumn(
+                    format="%.2f m"
+                ),
+                "Länge gesamt": st.column_config.NumberColumn(
+                    format="%.2f m"
+                ),
+                "Volumen": st.column_config.NumberColumn(
+                    format="%.2f m³"
+                )
+            })
+        else:
+            st.markdown(f"Es gibt **kein Profil**, welches die Nachweise erfüllt.")
 
     with bauteil_col_2:
         #Werte zusammenrechnen, die demselben "Material" angehören
-        total_volumes = df.groupby("Material")["Volumen"].sum()
-        total_weight = df.groupby("Material")["Gewicht"].sum()
+        try:
+            total_volumes = df.groupby("Material")["Volumen"].sum()
+            total_weight = df.groupby("Material")["Gewicht"].sum()
 
-        #Dataframes zusammenführen
-        combined_df = pd.concat([total_volumes, total_weight], axis=1)
+            #Dataframes zusammenführen
+            combined_df = pd.concat([total_volumes, total_weight], axis=1)
 
-        st.dataframe(combined_df, use_container_width=True, column_config={
-            "Volumen" : st.column_config.NumberColumn(
-                format="%.2f m³"
-            ),
-            "Gewicht" : st.column_config.NumberColumn(
-                format="%.2f kg"
-            )
-        })
-        st.markdown(f"Gesamtgewicht: **{((df['Gewicht'].sum())/1000):.2f} t**.")
-        st.markdown(f"Zur Überprüfung wird empfohlen, eine Eigene Last von mindestens **{((df['Gewicht'].sum()/100)/(trussDistance*trussWidth)):.2f} kN/m²** auf das System aufzulegen.")
+            st.dataframe(combined_df, use_container_width=True, column_config={
+                "Volumen" : st.column_config.NumberColumn(
+                    format="%.2f m³"
+                ),
+                "Gewicht" : st.column_config.NumberColumn(
+                    format="%.2f kg"
+                )
+            })
+            st.markdown(f"Gesamtgewicht: **{((df['Gewicht'].sum())/1000):.2f} t**.")
+            st.markdown(f"Zur Überprüfung wird empfohlen, eine **Eigenlast** von mindestens **{((df['Gewicht'].sum()/100)/(trussDistance*trussWidth)):.2f} kN/m²** auf das System aufzulegen.")
+        except KeyError:
+            st.text("")
 
     nodesNr = number_of_nodes(trussType)
     st.markdown(f"Es werden **{nodesNr} Knoten** konstruiert.")
 
-
-                    
-
-def draw_truss2():
-    minNodeX = trussWidth / 5
-    minNodeY = trussWidth / 5
-    maxNode = minNodeY + trussHeight
-    distanceNode = trussWidth / fieldNumber
-
-    nodeLower = [(float((minNodeX + (distanceNode / 2)) + i * distanceNode), minNodeY) for i in range(int(fieldNumber))]
-    nodeUpper = [(float(minNodeX + i * distanceNode), maxNode) for i in range(int(fieldNumber + 1))]
-
-    nodeArray = [item for pair in zip(nodeUpper, nodeLower) for item in pair]
-    if len(nodeLower) < len(nodeUpper):
-        nodeArray.extend(nodeUpper[len(nodeLower):])
-
-    edges = [(1, 0), (0, 2), (2, 1)]
-
-    for i in range(0, int(fieldNumber-1)):
-        edges.extend([(1 + 2 * i, 3 + 2 * i), (3 + 2 * i, 4 + 2 * i), (4 + 2 * i, 2 + 2 * i), (2 + 2 * i, 3 + 2 * i)])
-
-    # Create a figure
-    fig, ax = plt.subplots()
-
-    # Check if edges and nodeArray are not empty
-    if edges and nodeArray:
-        # Draw edges as LineCollection
-        edge_collection = LineCollection([(nodeArray[edge[0]], nodeArray[edge[1]]) for edge in edges], color='red', linewidth=2, zorder=2)
-        ax.add_collection(edge_collection)
-
-
-
-
-    # Draw nodes
-    # ax.scatter erwartet x_values und y_values als seperate arguments. zip(*nodeLower) sortiert alle tuple in x und y
-    # *zip(*nodeLower) löst dann x und y jeweils als einzelne tupel aus.
-    ax.scatter(*zip(*nodeLower), color='black', s=20, zorder=3)
-    ax.scatter(*zip(*nodeUpper), color='black', s=20, zorder=3) # zorder gibt die Reihenfolge an in der die Objekte gezeichnet werden
-
-    # Remove axis labels
-    ax.set_xticks([])
-    ax.set_yticks([])
-
-    # Set plot limits
-    ax.set_xlim([0, trussWidth + 2 * minNodeX])
-    ax.set_ylim([0, trussHeight + 2 * minNodeY])
-
-    ax.set_aspect(2, adjustable='datalim')
-
-    ax.spines['top'].set_visible(False)
-    ax.spines['right'].set_visible(False)
-    ax.spines['bottom'].set_visible(False)
-    ax.spines['left'].set_visible(False)
-
-    # Show the plot
-    st.pyplot(fig, use_container_width=True)
-def draw_truss3():
-    minNodeX = trussWidth / 5
-    minNodeY = trussWidth / 5
-    maxNode = minNodeY + trussHeight
-    distanceNode = trussWidth / fieldNumber
-
-    nodeLower = [(float((minNodeX + (distanceNode / 2)) + i * distanceNode), minNodeY) for i in range(int(fieldNumber))]
-    nodeUpper = [(float(minNodeX + i * distanceNode), maxNode) for i in range(int(fieldNumber + 1))]
-
-    nodeArray = [item for pair in zip(nodeUpper, nodeLower) for item in pair]
-    if len(nodeLower) < len(nodeUpper):
-        nodeArray.extend(nodeUpper[len(nodeLower):])
-
-    edges = [(1, 0), (0, 2), (2, 1)]
-
-    for i in range(0, int(fieldNumber -1)):
-        edges.extend([(1 + 2 * i, 3 + 2 * i), (3 + 2 * i, 4 + 2 * i), (4 + 2 * i, 2 + 2 * i), (2 + 2 * i, 3 + 2 * i)])
-
-    # Create a figure
-    fig, ax = plt.subplots()
-
-    nodeCorner = [
-        (nodeUpper[0][0], nodeUpper[0][1] - trussHeight),
-        (nodeUpper[-1][0], nodeUpper[-1][1] - trussHeight)
-    ]
-    
-    ax.plot([nodeArray[0][0], nodeCorner[0][0]], [nodeArray[0][1], nodeCorner[0][1]], "k-", linewidth=2)
-    ax.plot([nodeCorner[1][0], nodeCorner[0][0]], [nodeCorner[1][1], nodeCorner[0][1]], "k-", linewidth=2)
-    ax.plot([nodeArray[-1][0], nodeCorner[1][0]], [nodeArray[-1][1], nodeCorner[1][1]], "k-", linewidth=2)
-
-    # Check if edges and nodeArray are not empty
-    if edges and nodeArray:
-        # Draw edges as LineCollection
-        edge_collection = LineCollection([(nodeArray[edge[0]], nodeArray[edge[1]]) for edge in edges], color='black', linewidth=2, zorder=2)
-        ax.add_collection(edge_collection)
-
-    # Draw nodes in black
-    for node in nodeCorner:
-        ax.plot(node[0], node[1], "k^", markersize=10)
-
-    for node in nodeLower:
-        ax.plot(node[0], node[1], 'ko', markersize=5)
-
-    for node in nodeUpper:
-        ax.plot(node[0], node[1], "ko", markersize=5)
-
-    # Draw nodes
-    # ax.scatter erwartet x_values und y_values als seperate arguments. zip(*nodeLower) sortiert alle tuple in x und y
-    # *zip(*nodeLower) löst dann x und y jeweils als einzelne tupel aus.
-    #ax.scatter(*zip(*nodeLower), color='black', s=20, zorder=3)
-    #ax.scatter(*zip(*nodeUpper), color='black', s=20, zorder=3) # zorder gibt die Reihenfolge an in der die Objekte gezeichnet werden
-
-    # Remove axis labels
-    ax.set_xticks([])
-    ax.set_yticks([])
-
-    # Set plot limits
-    ax.set_xlim([0, trussWidth + 2 * minNodeX])
-    ax.set_ylim([0, trussHeight + 2 * minNodeY])
-
-    ax.set_aspect(1.5, adjustable='datalim')
-
-    ax.spines['top'].set_visible(False)
-    ax.spines['right'].set_visible(False)
-    ax.spines['bottom'].set_visible(False)
-    ax.spines['left'].set_visible(False)
-
-    # Show the plot
-    st.pyplot(fig, use_container_width=True)
-
-    
 
 
 
