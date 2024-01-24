@@ -10,12 +10,11 @@ import requests # um material.json auf github abzufragen
 st.set_page_config(
     page_title="fragwerk Fachwerkrechner",
     layout="wide",
-    page_icon="https://raw.githubusercontent.com/oelimar/images/main/fragwerk_icon.png"
+    page_icon="https://raw.githubusercontent.com/oelimar/images/main/fragwerk_icon.png",
+    menu_items={
+        "About" : f"# by ØLIMAR. \nhttps://soundcloud.com/oelimar"
+    }
 )
-
-#svg_path = r"C:\Users\DerSergeant\Desktop\fragwerk\fragwerk.png"
-
-
 
 st.title("")
 st.image("https://raw.githubusercontent.com/oelimar/images/main/fragwerk.png", width=300)
@@ -75,7 +74,6 @@ roofLayers = {
         4 : ("Schicht 4", 0),
         5 : ("Schicht 5", 0)
     }
-
 }
 
 roofColors = {
@@ -96,21 +94,18 @@ roofAdditives = {
 defaultPathLocal = r"C:\Users\DerSergeant\Desktop\fragwerk\materials.json"
 defaultPathGithub = "https://raw.githubusercontent.com/oelimar/images/main/materials.json"
 
+
+# load materials.json from Github Repository
 def load_json_file(file_url, file_path):
     try:
         response = requests.get(file_url)
-        #st.text(response)
         response.raise_for_status()
-        #st.text(response.raise_for_status())
         materialSelect = json.loads(response.text)
-        #st.text(response.text)
-        #st.text(f"loaded Github URL")
         return materialSelect
 
-    except Exception as e:
+    except Exception:
         with open(file_path, "r") as json_file:
             materialSelect = json.load(json_file)
-            #st.text(f"local File had to be used. Error: {e}")
         return materialSelect
 
 if "loaded_json" not in st.session_state:
@@ -130,13 +125,15 @@ def correctify_input(value):
         #variable initialisieren
         numberString = ""
 
-        #iteriere durch alle Ziffern um Zahlen, Punkte und Kommata zu extrahieren, Falls jemand einen Buchstaben eintippt.
+        #iteriere durch alle Ziffern um Zahlen, Punkte und Kommata zu extrahieren,
+        #Falls jemand einen Buchstaben eintippt.
         for character in str(value):
             if character.isdigit() or character == "." or character == ",":
                 numberString += character
 
         valueChanged = str(numberString).replace(",", ".")
-        valuePositive = abs(float(valueChanged))  # make value positive in case anyone is funny enough to enter negative distance
+        # make value positive in case anyone is funny enough to enter negative distance
+        valuePositive = abs(float(valueChanged))  
         return valuePositive
     except ValueError:
         return None
@@ -148,39 +145,29 @@ def print_error_and_set_default(default):
 
         return default
 
-
-
-
-snow_mapping_2 = {
-            1: 1.05,
-            2: 2.06,
-            3: 3.07
-        }
-wind_mapping_2 = {
-            1: 0.5,
-            2: 0.7,
-            3: 0.9,
-            4: 1.2
+wind_mapping = {
+            1: (0.50, 0.65, 0.75),
+            2: (0.70, 0.90, 1.00),
+            3: (0.90, 1.10, 1.20),
+            4: (1.20, 1.30, 1.40)
         }
 
 snow_mapping = {
-    200 : (0.65, 0.85, 1.10),
-    300 : (0.65, 0.89, 1.29),
-    400 : (0.65, 1.21, 1.78),
-    500 : (0.84, 1.60, 2.37),
-    600 : (1.05, 2.06, 3.07),
-    700 : (1.30, 2.58, 3.87),
-    800 : (1.58, 3.17, 4.76),
-    900 : (None, 3.83, 5.76),
-    1000 : (None, 4.55, 6.86),
-    1100 : (None, 5.33, 8.06),
-    1200 : (None, 6.19, 9.36),
-    1300 : (None, None, 10.76),
-    1400 : (None, None, 12.26),
-    1500 : (None, None, 13.86)
+    200 : (0.65, 0.81, 0.85, 1.06, 1.10),
+    300 : (0.65, 0.81, 0.89, 1.11, 1.29),
+    400 : (0.65, 0.81, 1.21, 1.52, 1.78),
+    500 : (0.84, 1.04, 1.60, 2.01, 2.37),
+    600 : (1.05, 1.32, 2.06, 2.58, 3.07),
+    700 : (1.30, 1.63, 2.58, 3.23, 3.87),
+    800 : (1.58, 1.98, 3.17, 3.96, 4.76),
+    900 : (None, None, 3.83, 4.78, 5.76),
+    1000 : (None, None, 4.55, 5.68, 6.86),
+    1100 : (None, None, 5.33, 6.67, 8.06),
+    1200 : (None, None, 6.19, 7.73, 9.36),
+    1300 : (None, None, None, None, 10.76),
+    1400 : (None, None, None, None, 12.26),
+    1500 : (None, None, None, None, 13.86)
 }
-
-
 
 lambda_values = {
     "Holz":{
@@ -266,10 +253,11 @@ with st.container(border=True):
 
         trussDistanceInput = st.text_input("Träger Abstand [m]", value="5.25")
         trussDistance = correctify_input(trussDistanceInput)
-        if trussDistance == None:   # falls ungültiger Wert erkannt wird, Warnung anzeigen
-            trussDistance = print_error_and_set_default(5.25)   # standardwert einfügen, damit bei Error script nicht abbricht
+        # falls ungültiger Wert erkannt wird, Warnung anzeigen
+        if trussDistance == None:
+            # standardwert einfügen, damit bei Error script nicht abbricht
+            trussDistance = print_error_and_set_default(5.25)   
 
-        #with st.expander("Dachaufbau"):
         if 'roofAdditives' not in st.session_state:
             st.session_state.roofAdditives = roofAdditives
         if "roofColors" not in st.session_state:
@@ -278,36 +266,19 @@ with st.container(border=True):
         if "currentSelection" not in st.session_state:
             st.session_state.currentSelection = None
 
-        #st.text(st.session_state.currentSelection.keys())
-        #st.text(st.session_state.roofAdditives.keys())
-
-        
-        #st.text(roofAdded_default)
-
-        #st.markdown("<div style='font-size: 13px; font-weight: 100;'>Anzeige Lasten</div>", unsafe_allow_html=True)
-        #col0_1, col0_2 = st.columns([0.5, 0.5], gap="small")
-        #with col0_1:
-            #lastAnzeige_einfach = st.button("Einfach", use_container_width=True)
-
-        #with col0_2:
-            #lastAnzeige_einfach = st.button("Erweitert", use_container_width=True
-
-
         # Theoretisch ursprüngliche Auswahlmöglichkeit für Ansicht
-        #lastAnzeige = st.radio("Anzeige Lasten", ["Einfach", "Erweitert"], 0, horizontal=True)
+        # lastAnzeige = st.radio("Anzeige Lasten", ["Einfach", "Erweitert"], 0, horizontal=True)
         
         lastAnzeige = "Erweitert"   # Ansicht bis aufs weitere als "Erweitert" festgelegt
 
 
 
 
-        
-        
+    
         roofTypeExpander = st.expander("Dachaufbau")
         with roofTypeExpander:
                 
                 
-            #roofType = st.selectbox("Dachaufbau [kN/m²]", placeholder="Wähle einen Dachaufbau", index=1, options=roofOptions.keys())   #old save
             roofType = st.selectbox("Dachaufbau", placeholder="Wähle einen Dachaufbau", index=1, options=roofOptions2, label_visibility="collapsed")
             st.image("https://www.ing-büro-junge.de/assets/images/Belastungen-Dachschichtenaufbau-2.jpg", use_column_width=True)
 
@@ -322,6 +293,7 @@ with st.container(border=True):
                 roofEditValue = False
 
             roofEdit = st.toggle("Dachlagen bearbeiten", value=roofEditValue)
+
             # roofLayers JSON struktur in Pandas struktur umwandeln
             for layer, (layer_name, value) in roofLayers[roofType].items():
                 flat_data.append({
@@ -341,7 +313,8 @@ with st.container(border=True):
                 edited_df = df
 
             # Aufsummieren aller Werte der Spalte "Last [kN/m²]"
-            roofLayerSum = abs(edited_df["Last [kN/m²]"]).sum()     # abs() damit Negative eingaben trotzdem richtig addiert werden
+            # abs() damit Negative eingaben trotzdem richtig addiert werden
+            roofLayerSum = abs(edited_df["Last [kN/m²]"]).sum()
             # Auf 2 Nachkommastellen runden
             roofLayerSum = round(roofLayerSum, 2)
             st.markdown(f"Die Gesamtlast beträgt **{roofLayerSum} kN/m²**.")
@@ -350,14 +323,6 @@ with st.container(border=True):
 
         roofAddedContainer = st.container()
         
-        #roofAdded = st.multiselect("Zusätzliche Dachlasten", st.session_state.roofAdditives.keys(), default=roofAdded_default, placeholder="Wähle hier zusätzliche Lasten", label_visibility="collapsed")
-
-        #if roofAdded != []:
-            #st.session_state.currentSelection = {}
-            #for name in roofAdded:
-                #st.session_state.currentSelection[name] = copy.deepcopy(st.session_state.roofAdditives[name])
-
-
         addButton = st.button("Eigene Last hinzufügen", type="primary", use_container_width=True, disabled=False)
 
         col1_1, col1_2, col1_3 = st.columns([0.5, 0.3, 0.1], gap="small")
@@ -368,8 +333,6 @@ with st.container(border=True):
             customValue = correctify_input(customValueInput)
         with col1_3:
             customColor = st.color_picker("Farbe", label_visibility="collapsed", value="#FFFFFF")
-
-        #addButton = st.button("Eigene Last hinzufügen", type="primary", use_container_width=True, disabled=False)
 
         # counter, um Anzahl an unbenannten Lasten zu zählen
         if "additiveCounter" not in st.session_state:
@@ -390,7 +353,6 @@ with st.container(border=True):
                 if st.session_state.currentSelection == None:
                     st.session_state.currentSelection = {}
                 st.session_state.currentSelection[customAdditive] = float(customValue)
-                #st.experimental_rerun()
                     
                 # Warnung, falls Wert bei Knopfdruck keinen sinnvollen Wert bilden kann
             except (ValueError, TypeError):     #ValueError, falls nur ein string übrigbleibt; TypeError falls versucht wird float(None) zu bilden, wenn correctify_input() None ausgibt
@@ -404,15 +366,12 @@ with st.container(border=True):
         with roofAddedContainer:
             roofAdded = st.multiselect("Zusätzliche Dachlasten", st.session_state.roofAdditives.keys(), default=roofAdded_default, placeholder="Wähle hier zusätzliche Lasten", label_visibility="collapsed")
 
-        #if roofAdded != roofAdded_default:
-        #if roofAdded != []:
         if roofAdded != roofAdded_default:
             st.session_state.currentSelection = {}
             for name in roofAdded:
                 st.session_state.currentSelection[name] = copy.deepcopy(st.session_state.roofAdditives[name])
                 roofAdded_default = list(st.session_state.currentSelection.keys())
-        #else:
-            #st.session_state.currentSelection = None
+
         if debug == True:
             st.text(f"roofAdded: {roofAdded}")
             st.text(f"s_s.currentSelection: {st.session_state.currentSelection}")
@@ -423,45 +382,56 @@ with st.container(border=True):
             heightZoneInput = st.text_input("Geländehöhe über NN [m]", value=400 )
             heightZone = correctify_input(heightZoneInput)
             if heightZone == None:
-                heightZone = 400
-                st.markdown(":red[Bitte gültigen Wert eingeben!]")
-                st.markdown(f"Es wird mit {heightZone}m weitergerechnet.")
-
+                heightZone = print_error_and_set_default(400)
             if int(heightZone) > 1500:
                 heightZone = 1500
-                st.markdown(":red[Werte bis maximal 1500m!]")
-                st.markdown(f"Es werden anstelle von {heightZone}m die Werte für 1500m angezeigt.")
                 
-
             for height in snow_mapping.keys():
                 if int(height) >= int(heightZone):
                     if debug == True:
                         st.text(height)
                     snowHeight = height
                     break
-            
-            
+
             if snow_mapping[snowHeight][0] == None: # anpassen der maximal/mininmalwerte für Schneezonen in Bezug auf Geländehöhe
-                snowMinValue = 2
-                if snow_mapping[snowHeight][1] == None: # anpassen der maximal/mininmalwerte für Schneezonen in Bezug auf Geländehöhe
-                    snowMinValue = 3
+                snowMinValue = 3
+                snowMinToMax = "[3-5]"
+                if snow_mapping[snowHeight][2] == None: # anpassen der maximal/mininmalwerte für Schneezonen in Bezug auf Geländehöhe
+                    snowMinValue = 5
+                    snowMinToMax = "[5]"
             else:
                 snowMinValue = 1
+                snowMinToMax = "[1-5]"
+
+            buildingHeightInput = st.text_input("Gebäudehöhe [m]", value=10)
+            buildingHeight = correctify_input(buildingHeightInput)
+            if buildingHeight == None:
+                buildingHeight = print_error_and_set_default(8.50)
+
+            if buildingHeight <= 10:
+                windIndex = 0
+            elif 10 < buildingHeight <= 18:
+                windIndex = 1
+            else:
+                windIndex = 2
+
 
             col1_4, col1_5 = st.columns([0.5, 0.5], gap="small")
             with col1_4:
-                windZone = st.number_input("Windlastzone", help="Wähle Anhand der Lage auf der Karte eine der 4 Windlastzonen", step=1, value=2, min_value=1, max_value=4)
+                windZone = st.number_input("Windlastzone [1-4]", help="Wähle Anhand der Lage auf der Karte eine der 4 Windlastzonen", step=1, value=2, min_value=1, max_value=4)
                 st.image("https://encrypted-tbn0.gstatic.com/images?q=tbn:ANd9GcShbi3oQsR2FrAbMAkfjh-Fw-ODeuYsS9NZrAojIXYJCWXZsK65qCyQejR-QJaFzEmheEY&usqp=CAU", caption="Windlastzonen in DE")
 
             with col1_5:
-                snowZone = st.number_input("Schneelastzone", help="Wähle Anhand der Lage auf der Karte eine der 3 Schneelastzonen", step=1, value=snowMinValue, min_value=snowMinValue, max_value=3)
+                snowZone = st.number_input(f"Schneelastzone {snowMinToMax}", help="Wähle Anhand der Lage auf der Karte eine der 3 Schneelastzonen", step=1, value=snowMinValue, min_value=snowMinValue, max_value=5)
                 st.image("https://encrypted-tbn0.gstatic.com/images?q=tbn:ANd9GcQ4A-8ZgmAVEg-fwtBN1ndVuCaCfbG3p5VOpwya0ZXY7NljUrRNvYoH4Hng9DVW0TriyDM&usqp=CAU", caption="Schneelastzonen in DE")
 
-        #snowForce = snow_mapping_2[snowZone] * 0.8 
-        snowForce = snow_mapping[snowHeight][snowZone - 1] * 0.8 # berechnung wie in Tabellenbuch
-
-        windForce = wind_mapping_2[windZone] * 0.2
+        # berechnung der Schneelast wie in Tabellenbuch S.45 (0.8 wegen Flachdach)
+        snowForce = snow_mapping[snowHeight][snowZone - 1] * 0.8
+        # berechnung der Windlast wie in Tabellenbuch S.47 (0.2 wegen Flachdach)
+        windForce = wind_mapping[windZone][windIndex] * 0.2
         roofForce = roofLayerSum
+        # Variable des Abstands des Lastenstapels zum LEF Trapez
+        start_height_stack = 0.5
 
         for force in roofAdded:
             roofForce += st.session_state.roofAdditives[force]
@@ -469,8 +439,6 @@ with st.container(border=True):
         qTotal = snowForce + windForce + roofForce
         qTotalField = qTotal * trussDistance
 
-    #with col2:
-        #st.text("GRAPH LEF")
 
 
 with st.container(border=True):
@@ -525,16 +493,12 @@ with st.container(border=True):
 
         with obergurtColumn:
             st.subheader("Obergurt")            
-            #strutToCheck = st.selectbox("Dimensionierung durchführen an", ["Obergurt", "Streben", "Untergurt"], index=0)
                 
             OG_col_5_1, OG_col_5_2 = st.columns([0.4, 0.6], gap="small")
-            #st.text("Eingabe Querschnitt")
 
-            # st.text(materialSelect.keys())
             if allOrEach == True:
                 with OG_col_5_1:
                     OG_material = st.selectbox("Material", placeholder="Wähle ein Material", options=materialSelect.keys(), key="OG_material")  # key attribut, damit sich selectboxen untereinander unterscheiden
-                    # st.text(material)
                 with OG_col_5_2:
                     OG_profile = st.selectbox("Profil", placeholder="Wähle ein Profil", options=materialSelect[OG_material].keys(), key="OG_profile")
 
@@ -556,16 +520,11 @@ with st.container(border=True):
         with strebenColumn:
             st.subheader("Streben")
                 
-            #strutToCheck = st.selectbox("Dimensionierung durchführen an", ["Obergurt", "Streben", "Untergurt"], index=0)
-                
             ST_col_5_1, ST_col_5_2 = st.columns([0.4, 0.6], gap="small")
-            #st.text("Eingabe Querschnitt")
 
-            # st.text(materialSelect.keys())
             if allOrEach == True:
                 with ST_col_5_1:
                     ST_material = st.selectbox("Material", placeholder="Wähle ein Material", options=materialSelect.keys(), key="ST_material")
-                    # st.text(material)
                 with ST_col_5_2:
                     ST_profile = st.selectbox("Profil", placeholder="Wähle ein Profil", options=materialSelect[ST_material].keys(), key="ST_profile")
 
@@ -587,16 +546,11 @@ with st.container(border=True):
         with untergurtColumn:
             st.subheader("Untergurt")
                 
-            #strutToCheck = st.selectbox("Dimensionierung durchführen an", ["Obergurt", "Streben", "Untergurt"], index=0)
-                
             UG_col_5_1, UG_col_5_2 = st.columns([0.4, 0.6], gap="small")
-            #st.text("Eingabe Querschnitt")
 
-            # st.text(materialSelect.keys())
             if allOrEach == True:
                 with UG_col_5_1:
                     UG_material = st.selectbox("Material", placeholder="Wähle ein Material", options=materialSelect.keys(), key="UG_material")
-                    # st.text(material)
                 with UG_col_5_2:
                     UG_profile = st.selectbox("Profil", placeholder="Wähle ein Profil", options=materialSelect[UG_material].keys(), key="UG_profile")
 
@@ -696,7 +650,7 @@ def draw_truss_parallel(strebenParallel):
     while i < fieldNumber/2:
         if strebenParallel == "Fallende Diagonalen":
             edgesFront = [
-                (1 + i*2, 0 + i*2),
+                (1 + i*2, 0 + i*2), #(Startpunkt, Endpunkt)
                 (0 + i*2, 2 + i*2),
                 (2 + i*2, 1 + i*2),
                 (1 + i*2, 3 + i*2),
@@ -735,13 +689,11 @@ def draw_truss_parallel(strebenParallel):
         i += 1
 
     for edge in edges:
-        #st.text(f"Current Edge: {edge}")
         start_node = nodeArray[edge[0]]
-        #st.text(f"Start Node: {edge}")
         end_node = nodeArray[edge[1]]
-        #st.text(f"End Node: {edge}")
         ax.plot([start_node[0], end_node[0]], [start_node[1], end_node[1]], 'r-', linewidth=2)
 
+    #Knoten an den Ecken definieren
     nodeCorner = [
         (nodeArray[0][0], nodeArray[0][1]),
         (nodeArray[-2][0], nodeArray[-2][1])
@@ -749,6 +701,8 @@ def draw_truss_parallel(strebenParallel):
 
     for node in nodeArray:
         ax.plot(node[0], node[1], 'ko', markersize=5)
+    #Eckknoten erneut als großes Dreieck plotten
+    #um Auflager anzudeuten
     for node in nodeCorner:
         ax.plot(node[0], node[1], "k^", markersize=10)
 
@@ -774,18 +728,6 @@ def draw_truss_strebe():
     nodeLower = []
     nodeUpper = []
 
-
-
-
-    #nodes = np.array([
-        #[100, 100],  # Node 0
-        #[200, 100],  # Node 1
-        #[300, 100],  # Node 2
-        #[150, 50],   # Node 3
-        #[250, 50],   # Node 4
-    #])
-
-
     # Create a figure
     fig, ax = plt.subplots()    
 
@@ -799,25 +741,10 @@ def draw_truss_strebe():
         nodeUpper.append((float(minNodeX + nodeU * distanceNode), maxNode)) #create coordinates for all the Upper nodes
         nodeU += 1
 
-    #nodeLower = np.array(nodeLower) #make numPy array (no idea why)
-    #nodeUpper = np.array(nodeUpper)
-
     nodeArray = [item for pair in zip(nodeUpper, nodeLower) for item in pair] #sort all Node coordinates in opposing order
     if len(nodeLower) < len(nodeUpper): #add the last missing Node from the longer array
         nodeArray.extend(nodeUpper[len(nodeLower):])
     
-    #nodeArray = np.array(nodeArray)
-
-    # Define truss connections (edges)
-    #edges = [
-        #(0, 1),  # Edge connecting Node 0 to Node 1
-        #(1, 2),  # Edge connecting Node 1 to Node 2
-        #(0, 3),  # Edge connecting Node 0 to Node 3
-        #(1, 4),  # Edge connecting Node 1 to Node 4
-        #(2, 4),  # Edge connecting Node 2 to Node 4
-        #(3, 4),  # Edge connecting Node 3 to Node 4
-    #]
-
     edges = [
         (1, 0),
         (0, 2),
@@ -833,18 +760,14 @@ def draw_truss_strebe():
             (4 + 2 * i, 2 + 2 * i),
             (2 + 2 * i, 3 + 2 * i)
         ]
-        #st.text(edges)
         edges.extend(edgeExtend)
         i += 1
 
 
     # Draw edges in red
     for edge in edges:
-        #st.text(f"Current Edge: {edge}")
         start_node = nodeArray[edge[0]]
-        #st.text(f"Start Node: {edge}")
         end_node = nodeArray[edge[1]]
-        #st.text(f"End Node: {edge}")
         ax.plot([start_node[0], end_node[0]], [start_node[1], end_node[1]], 'r-', linewidth=2)
 
     nodeCorner = [
@@ -866,11 +789,6 @@ def draw_truss_strebe():
     for node in nodeCorner:
         ax.plot(node[0], node[1], "k^", markersize=10)
 
-
-    # Calculate and display truss width and height
-    #truss_width = np.max(nodes[:, 0]) - np.min(nodes[:, 0])
-    #truss_height = np.max(nodes[:, 1]) - np.min(nodes[:, 1])
-
     # create Massband Gesamtlaenge
     draw_mass_band(minNodeX, minNodeY, ax)
     
@@ -884,7 +802,6 @@ def draw_truss_strebe():
     st.pyplot(fig, use_container_width=True)
 
     # debug to check node generation
-    
     if debug == True:
 
         st.text(f"Lower Nodes: {nodeLower}")
@@ -893,9 +810,6 @@ def draw_truss_strebe():
         st.text(f"Combined Nodes: {nodeArray}")
 
 def lasten_stack(nodes, last, debugOutput=False):
-
-    global start_height_stack
-    start_height_stack = 0.5
 
     if "stackStartHeight" not in st.session_state:
         st.session_state.stackStartHeight = start_height_stack
@@ -915,11 +829,9 @@ def lasten_stack(nodes, last, debugOutput=False):
 
     if debugOutput == True:
         if debug == True:
-            st.text(f"fängt an bei: {st.session_state.stackStartHeight:.2f}, mit Höhe {lastHeight:.2f} weiter")
+            st.text(f"fängt an bei: {st.session_state.stackStartHeight:.2f}," +
+                    f"mit Höhe {lastHeight:.2f} weiter")
             st.text(qTotal)
-            #st.text(f"{roofAdded}")
-            #for last in roofAdded:
-                #st.text(f"{st.session_state.roofAdditives[last]} kN")
 
     st.session_state.stackStartHeight += lastHeight
 
@@ -929,7 +841,6 @@ def draw_LEF():
 
     minNodeLEF = trussDistance / 5
     minNodeLEFy = 2
-    global start_height_stack
 
     edgesLEF = [
         (0, 1),
@@ -972,27 +883,15 @@ def draw_LEF():
     LEF_graph1 = plt.Polygon(nodesForceField[1], closed = True, edgecolor="lightblue", facecolor="lightblue", alpha=0.5)
     LEF_graph2 = plt.Polygon(nodesForceField[2], closed = True, edgecolor=None, facecolor="lightblue", alpha=0.3)
 
-
-
-    #st.write(LEF_graph)
-    #st.write(nodesForceField[0])
-    #LEF_graph = plt.Polygon(nodesForceField, closed = True, edgecolor=None, facecolor="lightblue", alpha=0.5)
-
         # Create a figure
     fig, ax = plt.subplots()
-
-    #with col1:
-        #lasten_stack(nodesForceField[1], 1, "test", ax)
 
     truss = 0
     while truss < 3:
         edgeNr = 0
         for edge in edgesLEF:
-            #st.text(f"Current Edge: {edge}")
             start_node = [nodesLEF[edge[0]][0] + truss * trussDistance, nodesLEF[edge[0]][1]]
-            #st.text(f"Start Node: {edge}")
             end_node = [nodesLEF[edge[1]][0] + truss * trussDistance, nodesLEF[edge[1]][1]]
-            #st.text(f"End Node: {edge}")
 
             # Oberste Linie dicker zeichnen um Träger zu visualisieren
             if edgeNr in [1, 3]:
@@ -1047,15 +946,9 @@ def draw_LEF():
             annotateNodes = []
 
             for nodes in lasten_stack(nodesForceField[1], st.session_state.completeRoofAdditives[name], debugOutput=True):
-                #if debug == True:
-                    #st.text(name)
-                    #st.text(f"{nodes[0]} und {nodes[1]}")
-                #ax.plot(*nodes, "ko", markersize=2)
-                #if 2 <= turn < 4:
                 annotateNodes.append(nodes)
                 turn += 1
 
-            #nodesStack = lasten_stack(nodesForceField[1], st.session_state.roofAdditives[name], name, ax)
             if debug == True:
                 st.text(f"{annotateNodes}")
                 st.text(f"{annotateNodes[0][0]}, {annotateNodes[2][1]}")
@@ -1063,8 +956,13 @@ def draw_LEF():
             # text um halbe höhe runterschieben
             halfHeight = (annotateNodes[2][1] - annotateNodes[1][1]) / 2 # höhere Y-Koordinate minus untere Y-Koordinate, geteilt durch 2
 
-            ax.annotate(f"- {name}", (annotateNodes[1][0], annotateNodes[2][1] - halfHeight), xytext=(10, 0), textcoords='offset points', va='center', fontsize=8, annotation_clip=False)
-            ax.annotate(f"{st.session_state.completeRoofAdditives[name]}kN/m²", (annotateNodes[1][0] - (trussDistance / 2), annotateNodes[2][1] - halfHeight), xytext=(0, 0), textcoords='offset points', ha='center', va='center', fontsize=8, annotation_clip=False, color="black")
+            ax.annotate(f"- {name}", (annotateNodes[1][0], annotateNodes[2][1] - halfHeight),
+                        xytext=(10, 0), textcoords='offset points', va='center',
+                        fontsize=8, annotation_clip=False)
+            ax.annotate(f"{st.session_state.completeRoofAdditives[name]}kN/m²",
+                        (annotateNodes[1][0] - (trussDistance / 2), annotateNodes[2][1] - halfHeight),
+                        xytext=(0, 0), textcoords='offset points', ha='center', va='center',
+                        fontsize=8, annotation_clip=False, color="black")
 
             stackPatch = plt.Polygon(annotateNodes, facecolor=st.session_state.roofColors[name], closed = True, edgecolor=st.session_state.roofColors[name], alpha=0.15, zorder=2 )
             ax.add_patch(stackPatch)
@@ -1094,9 +992,6 @@ def draw_LEF():
     ax.add_patch(LEF_graph0)
     ax.add_patch(LEF_graph1)
     ax.add_patch(LEF_graph2)
-
-    #for patch in stackPatches:
-        #ax.add_patch(patch)
 
     # nicht mehr genutzte Anzeige für Last
     if lastAnzeige == "Einfach":
@@ -1193,8 +1088,6 @@ def analyze_truss(strutToCheck, material, profile, chosenProfile):   #Analysiere
 
 def calc_strebewerk(strutToCheck, print_forces=False):
 
-    #qTotal = 2.4
-
     diagonalLength = math.sqrt((pow(distanceNode/2, 2)) + (pow(trussHeight, 2)))
     diagonalAlpha = math.asin(trussHeight/diagonalLength)
     qProd = 0 # summe aller Momente durch Q
@@ -1261,9 +1154,6 @@ def calc_strebewerk(strutToCheck, print_forces=False):
     return maxForce
 
 def calc_parallel(strebenParallel, strutToCheck, print_forces=False):
-    
-    #qTotal = 2.4
-    #st.text(qTotal)
 
     diagonalLength = math.sqrt((pow(distanceNode, 2)) + (pow(trussHeight, 2)))
     diagonalAlpha = math.asin(trussHeight/diagonalLength)
@@ -1281,13 +1171,13 @@ def calc_parallel(strebenParallel, strutToCheck, print_forces=False):
         i += 1
     qNum.append((punktLastAussen, i * distanceNode))
     qNum.append((-forceAuflager, i * distanceNode))
-    #st.text(len(qNum))
 
     for num in qNum:
         qSum += num[0]
         qProd += (num[0] * num[1])
-        #st.text(f"{qSum} und {qProd}")
 
+    # berechnung für mittleren Diagonalstab
+    # ist zwar nicht meistbelastet, aber für maxForceU dringend nötig
     if strebenParallel == "Fallende Diagonalen":
         ForceDmiddle = (-qSum)/math.sin(diagonalAlpha)
     else:
@@ -1345,8 +1235,6 @@ def extract_numerical_part(key):
     return int(key.split('/')[0]) if '/' in key else int(key)
 
 def stress_verification(material, profile, maxForce, stress_latex): # Spannungsnachweis zur Wahl des ersten Querschnitts
-    
-    #st.text(maxForce)
 
     maxForce_d = abs(maxForce) * 1.4
     
@@ -1368,10 +1256,6 @@ def stress_verification(material, profile, maxForce, stress_latex): # Spannungsn
         if area > areaCalc:
             chosenProfile = profil
 
-            if maxForce > 0:
-                st.session_state.finalArea = area
-
-
             with stress_latex:
                 A_min = r"A_{min}"
                 math_expression = r"A_{min} = \frac{{Nd}}{{\sigma_{Rd}}}"
@@ -1383,7 +1267,7 @@ def stress_verification(material, profile, maxForce, stress_latex): # Spannungsn
 
                 st.text(f"Profil: {chosenProfile}")
                 st.text(f"Profil Oberfläche: {materialSelect[material][profile][chosenProfile][0]}cm²")
-            return chosenProfile, sigma_rd, areaCalc
+            return chosenProfile, sigma_rd
     else:
         st.markdown(f'<font color="red">Es gibt keinen passenden {profile} Querschnitt, der den Spannungstest besteht.</font>', unsafe_allow_html=True)
         return False
@@ -1452,7 +1336,6 @@ def bend_verification(material, profile, chosenProfile, maxForce, sigma_rd, stre
     if maxForce < 0:    # wenn Druckkraft vorliegt, dann Knicknachweis führen
         for profil, values in materialSelect[material][profile].items():
             if extract_numerical_part(profil) >= extract_numerical_part(chosenProfile):
-                stressProfile = chosenProfile
                 if debug == True:
                     st.text(f"Teste Profil: {profil}")
                 min_i = values[1]
@@ -1461,11 +1344,8 @@ def bend_verification(material, profile, chosenProfile, maxForce, sigma_rd, stre
                     profile_success(material, profile, profil, maxForce, sigma_rd, stress_latex, stress_einheiten, strutToCheck)
 
                     return chosenProfile
-            #else:
-                #st.text(f"{profil} ist nicht größer als {chosenProfile}")
         else:
-            st.markdown(f'<font color="red">Es gibt keinen passenden {profile} Querschnitt, der den Knicktest besteht.</font>', unsafe_allow_html=True)
-            #st.markdown(":red[Es gibt keinen passenden Querschnitt für]")
+            st.markdown(f'<font color="red">Es gibt keinen passenden {profile} Querschnitt, der den Knicknachweis erfüllt.</font>', unsafe_allow_html=True)
 
     else:   # wenn keine Druckkraft vorliegt (=Zugkraft) dann ergibt der Spannungsnachweis den Querschnitt
         with st.expander("Knicknachweis"):
@@ -1517,8 +1397,8 @@ def create_bauteilliste():
             })
             st.markdown(f"Gesamtgewicht: **{((df['Gewicht'].sum())/1000):.2f} t**.")
             st.markdown(f"Zur Überprüfung wird empfohlen, eine **Eigenlast** von mindestens **{((df['Gewicht'].sum()/100)/(trussDistance*trussWidth)):.2f} kN/m²** auf das System aufzulegen.")
-        except KeyError:
-            st.text("")
+        except KeyError:    # Zeichne leeren container falls keine Bauteilliste erstellt werden kann.
+            st.write("")
 
     nodesNr = number_of_nodes(trussType)
     st.markdown(f"Es werden **{nodesNr} Knoten** konstruiert.")
@@ -1542,45 +1422,37 @@ def main():
 
     with obergurtColumn:
         strutToCheck = "Obergurt"
-        #draw_truss3()
         # maxForce als maximale Last, die sich aus dem calc() ergibt
         OG_maxForce = calc(trussType, strutToCheck)
     with obergurtColumn:
         try:
-            OG_chosenProfile, OG_sigma_rd, areaCalc = stress_verification(OG_material, OG_profile, OG_maxForce, OG_stress_latex)
+            OG_chosenProfile, OG_sigma_rd = stress_verification(OG_material, OG_profile, OG_maxForce, OG_stress_latex)
             bend_verification(OG_material, OG_profile, OG_chosenProfile, OG_maxForce, OG_sigma_rd, OG_stress_latex, OG_stress_einheiten, strutToCheck)
         except TypeError as e:
             st.text("")
-        #if stress_verification(OG_material, OG_profile, OG_maxForce) != False:
-            #bend_verification()
 
     with strebenColumn:
         strutToCheck = "Streben"
-        #draw_truss3()
-        # maxForce als maximale Last, die sich aus dem calc() ergibt
         ST_maxForce = calc(trussType, strutToCheck)
-    with strebenColumn:
         try:
-            ST_chosenProfile, ST_sigma_rd, areaCalc = stress_verification(ST_material, ST_profile, ST_maxForce, ST_stress_latex)
+            ST_chosenProfile, ST_sigma_rd = stress_verification(ST_material, ST_profile, ST_maxForce, ST_stress_latex)
             bend_verification(ST_material, ST_profile, ST_chosenProfile, ST_maxForce, ST_sigma_rd, ST_stress_latex, ST_stress_einheiten, strutToCheck)
         except TypeError as e:
             st.text("")
 
     with untergurtColumn:
         strutToCheck = "Untergurt"
-        #draw_truss3()
-        # maxForce als maximale Last, die sich aus dem calc() ergibt
         UG_maxForce = calc(trussType, strutToCheck, print_forces=True)
-    with untergurtColumn:
         try:
-            UG_chosenProfile, UG_sigma_rd, areaCalc = stress_verification(UG_material, UG_profile, UG_maxForce, UG_stress_latex)
+            UG_chosenProfile, UG_sigma_rd = stress_verification(UG_material, UG_profile, UG_maxForce, UG_stress_latex)
             bend_verification(UG_material, UG_profile, UG_chosenProfile, UG_maxForce, UG_sigma_rd, UG_stress_latex, UG_stress_einheiten, strutToCheck)
         except TypeError as e:
             st.text("")
 
-
     with bauteilExpander:
         create_bauteilliste()
+
+
 
 if __name__ == "__main__":
     main()
