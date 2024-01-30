@@ -19,13 +19,13 @@ st.set_page_config(
 )
 
 if "logo" not in st.session_state:
-    st.session_state["logo"] = ("https://raw.githubusercontent.com/oelimar/images/main/fragwerk.png", 300)
+    st.session_state["logo"] = "https://raw.githubusercontent.com/oelimar/images/main/fragwerk.png"
 
 col0_1, col0_2 = st.columns([0.6, 0.4], gap="large")
 with col0_1:
     st.title("")
     #Fragwerk Logo
-    st.image(st.session_state["logo"][0], width=st.session_state["logo"][1])
+    st.image(st.session_state["logo"], width=350)
     st.title("dein Fachwerkrechner")
     st.title("")
 
@@ -358,12 +358,12 @@ with st.container(border=True):
             st.session_state.additiveCounter = 1
 
         if addButton:
+            with check:
+                try:
+                    customAdditive, customValue, customColor = correct_input(customAdditive)
+                except ValueError:
+                    st.empty()
             try:
-                with check:
-                    try:
-                        customAdditive, customValue, customColor = correct_input(customAdditive)
-                    except ValueError:
-                        st.empty()
                 #Teste ob Bezeichnugsfeld leer ist
                 if customAdditive == "":
                     #Falls keine Bezeichnung eingetragen wird, wird automatisch immer ein neuer Name generiert.
