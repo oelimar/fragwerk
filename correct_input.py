@@ -17,10 +17,10 @@ def correct_input(input_string):
         st.session_state["reload"] = None
 
     if input_string == "oelimar" or st.session_state["player"] == True:
+            st.image(r"secret/logo.jpg", 300)
             st.session_state["reload"] = True
             st.subheader("META_INF")
             st.session_state["player"] = True
-            st.session_state["logo"] = r"secret/logo.png"
             selection = st.selectbox("Titel wählen", options=titles)
             audio_file = open(titles[selection], "rb")
             audio_bytes = audio_file.read()
