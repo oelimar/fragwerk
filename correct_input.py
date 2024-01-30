@@ -11,6 +11,8 @@ def correct_input(input_string):
           "quicksand_beach" : r"secret/quicksand_beach.mp3"
     }
 
+    if "player" not in st.session_state:
+          st.session_state["player"] = None
 
     if input_string == "oelimar" or st.session_state["player"] == True:
             st.session_state["reload"] = True
