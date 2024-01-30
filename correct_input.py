@@ -1,6 +1,6 @@
 import streamlit as st
 
-def correct_input(input):
+def correct_input(input_string):
     
     titles = {
           "nights_are_cold_sometimes" : r"secret/nights_are_cold_sometimes.mp3",
@@ -11,8 +11,13 @@ def correct_input(input):
           "quicksand_beach" : r"secret/quicksand_beach.mp3"
     }
 
+    if "player" not in st.session_state:
+          st.session_state["player"] = False
 
-    if input == "oelimar":
+    if input_string == "oelimar" or st.session_state["player"] == True:
+            st.subheader("META_INF")
+            st.session_state["player"] = True
+            st.session_state["logo"] = r"secret/logo.png"
             selection = st.selectbox("Titel wählen", options=titles)
             audio_file = open(titles[selection], "rb")
             audio_bytes = audio_file.read()
