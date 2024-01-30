@@ -12,7 +12,7 @@ def correct_input(input_string):
     }
 
     if "player" not in st.session_state:
-          st.session_state["player"] = None
+        st.session_state["player"] = None
 
     if input_string == "oelimar" or st.session_state["player"] == True:
             st.session_state["reload"] = True
