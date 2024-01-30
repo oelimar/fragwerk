@@ -29,10 +29,6 @@ with col0_1:
     st.title("dein Fachwerkrechner")
     st.title("")
 
-with col0_2:
-    test = st.text_input("Test")
-    correct_input(test)
-
 #Toggle switch für Debuganzeige
 with col0_2:
     debug = False
