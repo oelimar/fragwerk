@@ -13,12 +13,14 @@ def correct_input(input_string):
 
     if "player" not in st.session_state:
         st.session_state["player"] = None
+    if "reload" not in st.session_state:
+        st.session_state["reload"] = None
 
     if input_string == "oelimar" or st.session_state["player"] == True:
             st.session_state["reload"] = True
             st.subheader("META_INF")
             st.session_state["player"] = True
-            st.session_state["logo"] = r"secret/logo.png"
+            st.session_state["logo"] = (r"secret/logo.png", 400)
             selection = st.selectbox("Titel wählen", options=titles)
             audio_file = open(titles[selection], "rb")
             audio_bytes = audio_file.read()
