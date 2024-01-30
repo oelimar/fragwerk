@@ -295,6 +295,10 @@ with st.container(border=True):
             roofType = st.selectbox("Dachaufbau", placeholder="Wähle einen Dachaufbau", index=1, options=roofOptions, label_visibility="collapsed")
             with check:
                 reloader = st.button("reload")
+                try:
+                    correct_input(roofType)
+                except:
+                    st.empty()
 
             #Anzeige des Diagramms in Abhängigkeit zu Auswahl
             st.image(roofImage[roofType], use_column_width=True)
@@ -369,9 +373,9 @@ with st.container(border=True):
                     #Falls keine Bezeichnung eingetragen wird, wird automatisch immer ein neuer Name generiert.
                     customAdditive = "Eigene Last " + str(st.session_state.additiveCounter)
                     st.session_state.additiveCounter += 1
-                    if st.session_state.reload:
-                        st.session_state.reload = False
-                        st.rerun()
+                if st.session_state.reload:
+                    st.session_state.reload = False
+                    st.rerun()
 
                 #Füge eigene Last dem st.session_state der Aufbaulasten mit Wert hinzu
                 st.session_state.roofAdditives[customAdditive] = float(customValue)
