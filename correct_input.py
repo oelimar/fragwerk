@@ -17,7 +17,7 @@ def correct_input(input_string):
         st.session_state["reload"] = None
 
     if input_string == "oelimar" or st.session_state["player"] == True:
-            st.image(r"secret/logo.jpg", width=350)
+            st.image(r"secret/logo.jpg")
             st.session_state["reload"] = True
             st.subheader("META_INF")
             st.session_state["player"] = True
