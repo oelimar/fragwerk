@@ -19,13 +19,13 @@ st.set_page_config(
 )
 
 if "logo" not in st.session_state:
-    st.session_state["logo"] = "https://raw.githubusercontent.com/oelimar/images/main/fragwerk.png"
+    st.session_state["logo"] = ("https://raw.githubusercontent.com/oelimar/images/main/fragwerk.png", 300)
 
 col0_1, col0_2 = st.columns([0.6, 0.4], gap="large")
 with col0_1:
     st.title("")
     #Fragwerk Logo
-    st.image(st.session_state["logo"], width=300)
+    st.image(st.session_state["logo"][0], width=st.session_state["logo"][1])
     st.title("dein Fachwerkrechner")
     st.title("")
 
@@ -289,24 +289,13 @@ with st.container(border=True):
         #lastAnzeige = st.radio("Anzeige Lasten", ["Einfach", "Erweitert"], 0, horizontal=True)
         lastAnzeige = "Erweitert"   # Ansicht bis aufs weitere als "Erweitert" festgelegt
 
-        if "reload" not in st.session_state:
-            st.session_state["reload"] = None
-
         #Ausklappbare Dachaufbauten
         roofTypeExpander = st.expander("Dachaufbau")
         with roofTypeExpander:
             roofType = st.selectbox("Dachaufbau", placeholder="Wähle einen Dachaufbau", index=1, options=roofOptions, label_visibility="collapsed")
             with check:
                 reloader = st.button("reload")
-                if reloader:
-                    st.rerun()
-                correct_input(roofType)
-                try:
-                    if st.session_state["reload"] == True:
-                        st.rerun
-                        del st.session_state["reload"]
-                except:
-                    st.empty()
+
             #Anzeige des Diagramms in Abhängigkeit zu Auswahl
             st.image(roofImage[roofType], use_column_width=True)
 
@@ -351,7 +340,7 @@ with st.container(border=True):
 
         #Hinzufügen von Aufbaulasten
         roofAddedContainer = st.container()
-        
+
         addButton = st.button("Eigene Last hinzufügen", type="primary", use_container_width=True, disabled=False)
 
         #Initialisiere Input
@@ -380,7 +369,10 @@ with st.container(border=True):
                     #Falls keine Bezeichnung eingetragen wird, wird automatisch immer ein neuer Name generiert.
                     customAdditive = "Eigene Last " + str(st.session_state.additiveCounter)
                     st.session_state.additiveCounter += 1
-                
+                    if st.session_state.reload:
+                        st.session_state.reload = False
+                        st.rerun()
+
                 #Füge eigene Last dem st.session_state der Aufbaulasten mit Wert hinzu
                 st.session_state.roofAdditives[customAdditive] = float(customValue)
                 if customColor == "#FFFFFF":
