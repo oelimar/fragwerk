@@ -18,12 +18,14 @@ st.set_page_config(
     }
 )
 
-st.title("")
-#Fragwerk Logo
-st.image("https://raw.githubusercontent.com/oelimar/images/main/fragwerk.png", width=300)
+if "logo" not in st.session_state:
+    st.session_state["logo"] = "https://raw.githubusercontent.com/oelimar/images/main/fragwerk.png"
 
-col0_1, col0_2 = st.columns([0.7, 0.3], gap="large")
+col0_1, col0_2 = st.columns([0.6, 0.4], gap="large")
 with col0_1:
+    st.title("")
+    #Fragwerk Logo
+    st.image(st.session_state["logo"], width=300)
     st.title("dein Fachwerkrechner")
     st.title("")
 
@@ -263,6 +265,7 @@ fieldSettings = {
 
 #Einstellung der Breiten für das gesamte Layout
 columnsParameters = [0.45, 0.55]
+check = col0_2
 
 #Erstelle ersten Abschnitt
 with st.container(border=True):
@@ -294,6 +297,8 @@ with st.container(border=True):
         roofTypeExpander = st.expander("Dachaufbau")
         with roofTypeExpander:
             roofType = st.selectbox("Dachaufbau", placeholder="Wähle einen Dachaufbau", index=1, options=roofOptions, label_visibility="collapsed")
+            with check:
+                correct_input(roofType)
             #Anzeige des Diagramms in Abhängigkeit zu Auswahl
             st.image(roofImage[roofType], use_column_width=True)
 
@@ -357,6 +362,11 @@ with st.container(border=True):
 
         if addButton:
             try:
+                with check:
+                    try:
+                        customAdditive, customValue, customColor = correct_input(customAdditive)
+                    except ValueError:
+                        st.empty()
                 #Teste ob Bezeichnugsfeld leer ist
                 if customAdditive == "":
                     #Falls keine Bezeichnung eingetragen wird, wird automatisch immer ein neuer Name generiert.
