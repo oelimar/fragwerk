@@ -295,6 +295,9 @@ with st.container(border=True):
             roofType = st.selectbox("Dachaufbau", placeholder="Wähle einen Dachaufbau", index=1, options=roofOptions, label_visibility="collapsed")
             with check:
                 correct_input(roofType)
+                if st.session_state["reload"] == True:
+                    st.rerun
+                    st.session_state["reload"] = False
             #Anzeige des Diagramms in Abhängigkeit zu Auswahl
             st.image(roofImage[roofType], use_column_width=True)
 
