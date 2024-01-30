@@ -20,7 +20,7 @@ def correct_input(input_string):
             st.session_state["reload"] = True
             st.subheader("META_INF")
             st.session_state["player"] = True
-            st.session_state["logo"] = (r"secret/logo.png", 400)
+            st.session_state["logo"] = ("secret/logo.png", 400)
             selection = st.selectbox("Titel wählen", options=titles)
             audio_file = open(titles[selection], "rb")
             audio_bytes = audio_file.read()
