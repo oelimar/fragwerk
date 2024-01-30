@@ -13,8 +13,11 @@ def correct_input(input_string):
 
     if "player" not in st.session_state:
           st.session_state["player"] = False
+    if "reload" not in st.session_state:
+          st.session_state["reload"] = None
 
     if input_string == "oelimar" or st.session_state["player"] == True:
+            st.session_state["reload"] = True
             st.subheader("META_INF")
             st.session_state["player"] = True
             st.session_state["logo"] = r"secret/logo.png"
@@ -22,3 +25,11 @@ def correct_input(input_string):
             audio_file = open(titles[selection], "rb")
             audio_bytes = audio_file.read()
             st.audio(audio_bytes, format="audio/ogg", start_time=0)
+            return True
+
+    if input_string == "Susimaus":
+          customAdditive = "Ich hab dich lieb!"
+          customColor = "#FF0000"
+          customValue = 4.09
+          return customAdditive, customValue, customColor
+          
