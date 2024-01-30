@@ -289,6 +289,9 @@ with st.container(border=True):
         #lastAnzeige = st.radio("Anzeige Lasten", ["Einfach", "Erweitert"], 0, horizontal=True)
         lastAnzeige = "Erweitert"   # Ansicht bis aufs weitere als "Erweitert" festgelegt
 
+    if "reload" not in st.session_state:
+        st.session_state["reload"] = None
+
         #Ausklappbare Dachaufbauten
         roofTypeExpander = st.expander("Dachaufbau")
         with roofTypeExpander:
