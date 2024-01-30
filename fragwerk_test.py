@@ -297,6 +297,9 @@ with st.container(border=True):
         with roofTypeExpander:
             roofType = st.selectbox("Dachaufbau", placeholder="Wähle einen Dachaufbau", index=1, options=roofOptions, label_visibility="collapsed")
             with check:
+                reloader = st.button("reload")
+                if reloader:
+                    st.rerun()
                 correct_input(roofType)
                 try:
                     if st.session_state["reload"] == True:
