@@ -361,7 +361,7 @@ with st.container(border=True):
             with check:
                 try:
                     customAdditive, customValue, customColor = correct_input(customAdditive)
-                except ValueError:
+                except (ValueError, TypeError):
                     st.empty()
             try:
                 #Teste ob Bezeichnugsfeld leer ist
